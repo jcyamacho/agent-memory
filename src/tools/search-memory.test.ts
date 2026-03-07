@@ -1,0 +1,120 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "../memory.ts";
+import { MemoryService } from "../memory-service.ts";
+import { registerSearchMemoryTool } from "./search-memory.ts";
+
+class SearchOnlyRepository implements MemoryRepository {
+  public searchQuery: MemorySearchQuery | undefined;
+
+  async save(memory: MemoryRecord): Promise<MemoryRecord> {
+    return memory;
+  }
+
+  async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
+    this.searchQuery = query;
+
+    return [
+      {
+        id: "memory-1",
+        content: "Use FTS5 for recall and ranking.",
+        score: 0.9,
+        source: "codex",
+        workspace: "/repo-a",
+        session: "session-a",
+        createdAt: new Date("2026-03-07T10:00:00.000Z"),
+      },
+    ];
+  }
+}
+
+describe("registerSearchMemoryTool", () => {
+  let repository: SearchOnlyRepository;
+  let server: McpServer;
+  let client: Client;
+
+  beforeEach(async () => {
+    repository = new SearchOnlyRepository();
+    const memoryService = new MemoryService(repository);
+    server = new McpServer({
+      name: "agent-memory-test",
+      version: "1.0.0",
+    });
+
+    registerSearchMemoryTool(server, memoryService);
+
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    client = new Client({
+      name: "search-memory-test-client",
+      version: "1.0.0",
+    });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+  });
+
+  afterEach(async () => {
+    await client.close();
+    await server.close();
+  });
+
+  it("maps search input to the service and returns structured results", async () => {
+    const response = await client.callTool({
+      name: "search_memory",
+      arguments: {
+        query: "  FTS5 ranking  ",
+        limit: 3,
+        preferred_source: "  codex  ",
+        preferred_workspace: "  /repo-a  ",
+        filter_source: "  codex  ",
+        filter_workspace: "  /repo-a  ",
+        created_after: "2026-03-01T00:00:00.000Z",
+        created_before: "2026-03-31T23:59:59.000Z",
+      },
+    });
+
+    expect(repository.searchQuery).toMatchObject({
+      query: "FTS5 ranking",
+      limit: 3,
+      preferredSource: "codex",
+      preferredWorkspace: "/repo-a",
+      filterSource: "codex",
+      filterWorkspace: "/repo-a",
+    });
+    expect(repository.searchQuery?.createdAfter).toBeInstanceOf(Date);
+    expect(repository.searchQuery?.createdBefore).toBeInstanceOf(Date);
+    expect(response.structuredContent).toEqual({
+      results: [
+        {
+          id: "memory-1",
+          content: "Use FTS5 for recall and ranking.",
+          score: 1.15,
+          source: "codex",
+          workspace: "/repo-a",
+          session: "session-a",
+          created_at: "2026-03-07T10:00:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("returns an MCP validation error for an invalid date", async () => {
+    const response = await client.callTool({
+      name: "search_memory",
+      arguments: {
+        query: "fts5",
+        created_after: "not-a-date",
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: "MCP error -32602: created_after must be a valid ISO 8601 datetime.",
+      },
+    ]);
+  });
+});
