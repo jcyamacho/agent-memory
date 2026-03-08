@@ -5,9 +5,7 @@ import type { SqliteDatabaseLike, SqlStatement } from "./sqlite-db.ts";
 interface MemoryRow {
   id: string;
   content: string;
-  source: string | null;
   workspace: string | null;
-  session: string | null;
   created_at: number;
   score: number;
 }
@@ -26,14 +24,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
       INSERT INTO memories (
         id,
         content,
-        source,
         workspace,
-        session,
         created_at,
         updated_at
       ) VALUES (
-        ?,
-        ?,
         ?,
         ?,
         ?,
@@ -48,9 +42,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
       this.insertStatement.run(
         memory.id,
         memory.content,
-        memory.source,
         memory.workspace,
-        memory.session,
         memory.createdAt.getTime(),
         memory.updatedAt.getTime(),
       );
@@ -63,12 +55,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     try {
       const whereClauses = ["memories_fts MATCH ?"];
-      const params: unknown[] = [toFtsQuery(query.query)];
-
-      if (query.filterSource) {
-        whereClauses.push("m.source = ?");
-        params.push(query.filterSource);
-      }
+      const params: unknown[] = [toFtsQuery(query.terms)];
 
       if (query.filterWorkspace) {
         whereClauses.push("m.workspace = ?");
@@ -89,9 +76,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
         SELECT
           m.id,
           m.content,
-          m.source,
           m.workspace,
-          m.session,
           m.created_at,
           MAX(0, -bm25(memories_fts)) AS score
         FROM memories_fts
@@ -108,9 +93,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
         id: row.id,
         content: row.content,
         score: row.score,
-        source: row.source ?? undefined,
         workspace: row.workspace ?? undefined,
-        session: row.session ?? undefined,
         createdAt: new Date(row.created_at),
       }));
     } catch (error) {
@@ -124,10 +107,4 @@ export class SqliteMemoryRepository implements MemoryRepository {
 const toCandidateLimit = (limit: number): number =>
   Math.min(Math.max(limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES), MAX_CANDIDATES);
 
-const toFtsQuery = (query: string): string =>
-  query
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((term) => `"${term.replaceAll('"', '""')}"`)
-    .join(" ");
+const toFtsQuery = (terms: string[]): string => terms.map((term) => `"${term.replaceAll('"', '""')}"`).join(" ");

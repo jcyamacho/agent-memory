@@ -7,15 +7,12 @@ const MEMORY_SCHEMA = `
   CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
-    source TEXT,
     workspace TEXT,
-    session TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
-  CREATE INDEX IF NOT EXISTS idx_memories_source ON memories(source);
   CREATE INDEX IF NOT EXISTS idx_memories_workspace ON memories(workspace);
 
   CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(

@@ -34,6 +34,19 @@ describe("sqlite-db", () => {
     expect(tables).toEqual([{ name: "memories" }, { name: "memories_fts" }]);
   });
 
+  it("stores only the minimal memory columns", () => {
+    const databasePath = join(directory, "memory.db");
+    const database = new Database(databasePath);
+
+    initializeMemoryDatabase(database);
+
+    const columns = database.prepare("PRAGMA table_info(memories)").all() as Array<{ name: string }>;
+
+    database.close();
+
+    expect(columns.map((column) => column.name)).toEqual(["id", "content", "workspace", "created_at", "updated_at"]);
+  });
+
   it("initializes pragma settings when pragma is available", () => {
     const pragmaCalls: string[] = [];
     const executedSql: string[] = [];

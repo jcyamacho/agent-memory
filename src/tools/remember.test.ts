@@ -54,26 +54,28 @@ describe("registerRememberTool", () => {
       name: "remember",
       arguments: {
         content: "  Keep migrations isolated from repository logic.  ",
-        source: "  codex  ",
         workspace: "  /repo-a  ",
-        session: "  session-a  ",
       },
     });
 
     expect(repository.savedMemory).toBeDefined();
     expect(repository.savedMemory).toMatchObject({
       content: "Keep migrations isolated from repository logic.",
-      source: "codex",
       workspace: "/repo-a",
-      session: "session-a",
     });
     expect(response.structuredContent).toMatchObject({
       id: expect.any(String),
-      source: "codex",
       workspace: "/repo-a",
-      session: "session-a",
       created_at: expect.any(String),
     });
     expect(response.structuredContent).not.toHaveProperty("content");
+    expect(response.structuredContent).not.toHaveProperty("source");
+    expect(response.structuredContent).not.toHaveProperty("session");
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: "Saved memory.",
+      },
+    ]);
   });
 });

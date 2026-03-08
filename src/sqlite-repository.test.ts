@@ -32,17 +32,14 @@ describe("SqliteMemoryRepository", () => {
     await repository.save({
       id: "memory-1",
       content: "Use SQLite WAL mode when multiple MCP clients share the same file.",
-      source: "codex",
       workspace: "/repo-a",
-      session: "session-a",
       createdAt,
       updatedAt: createdAt,
     });
 
     const results = await repository.search({
-      query: "SQLite WAL file",
+      terms: ["SQLite", "WAL", "file"],
       limit: 5,
-      preferredSource: "codex",
       preferredWorkspace: "/repo-a",
     });
 
@@ -72,11 +69,30 @@ describe("SqliteMemoryRepository", () => {
     });
 
     const results = await repository.search({
-      query: "verification-memory-entry-2026-03-08",
+      terms: ["verification-memory-entry-2026-03-08"],
       limit: 5,
     });
 
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe("memory-2");
+  });
+
+  it("supports phrase terms without splitting them internally", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "memory-3",
+      content: "Prefer shared sqlite decisions for cross-client coordination.",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["shared sqlite", "decisions"],
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("memory-3");
   });
 });

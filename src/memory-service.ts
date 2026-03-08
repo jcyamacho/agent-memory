@@ -11,7 +11,6 @@ import type {
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 20;
-const SOURCE_BIAS = 0.15;
 const WORKSPACE_BIAS = 0.1;
 
 export class MemoryService {
@@ -32,9 +31,7 @@ export class MemoryService {
     const memory: MemoryRecord = {
       id: randomUUID(),
       content,
-      source: normalizeOptionalString(input.source),
       workspace: normalizeOptionalString(input.workspace),
-      session: normalizeOptionalString(input.session),
       createdAt: now,
       updatedAt: now,
     };
@@ -43,18 +40,16 @@ export class MemoryService {
   }
 
   async search(input: SearchMemoryInput): Promise<MemorySearchResult[]> {
-    const query = input.query.trim();
+    const terms = normalizeTerms(input.terms);
 
-    if (!query) {
-      throw new ValidationError("Search query is required.");
+    if (terms.length === 0) {
+      throw new ValidationError("At least one search term is required.");
     }
 
     const normalizedQuery: MemorySearchQuery = {
-      query,
+      terms,
       limit: normalizeLimit(input.limit),
-      preferredSource: normalizeOptionalString(input.preferredSource),
       preferredWorkspace: normalizeOptionalString(input.preferredWorkspace),
-      filterSource: normalizeOptionalString(input.filterSource),
       filterWorkspace: normalizeOptionalString(input.filterWorkspace),
       createdAfter: input.createdAfter,
       createdBefore: input.createdBefore,
@@ -89,12 +84,13 @@ const normalizeOptionalString = (value: string | undefined): string | undefined 
   return trimmed ? trimmed : undefined;
 };
 
+const normalizeTerms = (terms: string[]): string[] => {
+  const normalizedTerms = terms.map((term) => term.trim()).filter(Boolean);
+  return [...new Set(normalizedTerms)];
+};
+
 const rankResult = (result: MemorySearchResult, query: MemorySearchQuery): number => {
   let score = result.score;
-
-  if (query.preferredSource && result.source === query.preferredSource) {
-    score += SOURCE_BIAS;
-  }
 
   if (query.preferredWorkspace && result.workspace === query.preferredWorkspace) {
     score += WORKSPACE_BIAS;

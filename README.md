@@ -63,22 +63,22 @@ With a custom database path:
 Recommended LLM instructions to pair with this MCP:
 
 ```text
-Use `memory_recall` at the start of a task, when the user refers to previous
-context, or whenever prior preferences, project facts, or decisions may help.
+Use `memory_recall` at task start and whenever prior preferences, project facts,
+or decisions may matter.
 
-Use `memory_remember` to save durable context that will matter later, such as
-user preferences, project conventions, architecture decisions, constraints, and
-stable workflow habits.
+Use `memory_remember` only for durable, reusable context: preferences,
+conventions, decisions, constraints, and stable workflow habits. Store one
+concise, self-contained fact per memory. Include `workspace` when available. Do
+not store secrets or temporary noise.
 
-Store concise, self-contained facts or short notes. Include `source`,
-`workspace`, and `session` when available so future retrieval is better scoped.
+For `memory_recall`, pass `terms` as 2-5 distinctive strings likely to appear
+verbatim in memory content. Prefer names, identifiers, acronyms, package names,
+file names, dates, and unique hyphenated strings. Use one item per term
+or short phrase. Avoid filler words because each extra term narrows the match.
 
-Do not store secrets, credentials, API keys, tokens, or temporary noise.
-
-When recalling, use short factual queries and keep `limit` small unless you
-need broader recall. Use `preferred_workspace` or `preferred_source` to bias
-ranking, and `filter_workspace` or `filter_source` only when exact scoping is
-required.
+Use `preferred_workspace` to bias ranking. Use `filter_workspace` and
+`created_*` only for exact scoping. Keep `limit` small. If recall misses,
+remove uncertain search terms before increasing `limit`.
 ```
 
 ## What It Stores
@@ -88,7 +88,7 @@ This MCP is useful for context that should survive across turns and sessions:
 - User preferences like response style, formatting, and workflow habits
 - Project facts like paths, architecture choices, and conventions
 - Important decisions and constraints that should not be rediscovered
-- Session-linked notes that still matter later
+- Project-scoped notes that still matter later
 
 ## Tools
 
@@ -99,16 +99,12 @@ Save durable context for later recall.
 Inputs:
 
 - `content` -> fact, preference, decision, or context to store
-- `source` -> client, tool, or agent name
 - `workspace` -> repository or workspace path
-- `session` -> conversation or execution session identifier
 
 Output:
 
 - `id`
-- `source`
 - `workspace`
-- `session`
 - `created_at`
 
 ### `recall`
@@ -117,19 +113,17 @@ Retrieve relevant memories for the current task.
 
 Inputs:
 
-- `query` -> keywords, names, facts, or phrases to search for
+- `terms` -> 2-5 distinctive terms or short phrases that should appear in the
+  memory content; avoid full natural-language questions
 - `limit` -> maximum results to return
-- `preferred_source` -> ranking hint for a source
 - `preferred_workspace` -> ranking hint for a workspace
-- `filter_source` -> exact source filter
 - `filter_workspace` -> exact workspace filter
 - `created_after` -> ISO 8601 lower bound
 - `created_before` -> ISO 8601 upper bound
 
 Output:
 
-- `results[]` with `id`, `content`, `score`, `source`, `workspace`, `session`,
-  and `created_at`
+- `results[]` with `id`, `content`, `score`, `workspace`, and `created_at`
 
 ## Setup
 
@@ -161,6 +155,9 @@ Set `AGENT_MEMORY_DB_PATH` when you want to:
 - keep memory in a project-specific location
 - share a memory DB across multiple clients
 - store the DB somewhere easier to back up or inspect
+
+Beta note: schema changes are not migrated. If you are upgrading from an older
+beta, delete the existing memory DB and let the server create a new one.
 
 ## Run from source
 

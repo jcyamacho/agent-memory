@@ -21,9 +21,7 @@ class RecallOnlyRepository implements MemoryRepository {
         id: "memory-1",
         content: "Use FTS5 for recall and ranking.",
         score: 0.9,
-        source: "codex",
         workspace: "/repo-a",
-        session: "session-a",
         createdAt: new Date("2026-03-07T10:00:00.000Z"),
       },
     ];
@@ -64,11 +62,9 @@ describe("registerRecallTool", () => {
     const response = await client.callTool({
       name: "recall",
       arguments: {
-        query: "  FTS5 ranking  ",
+        terms: ["  FTS5  ", "ranking"],
         limit: 3,
-        preferred_source: "  codex  ",
         preferred_workspace: "  /repo-a  ",
-        filter_source: "  codex  ",
         filter_workspace: "  /repo-a  ",
         created_after: "2026-03-01T00:00:00.000Z",
         created_before: "2026-03-31T23:59:59.000Z",
@@ -76,11 +72,9 @@ describe("registerRecallTool", () => {
     });
 
     expect(repository.searchQuery).toMatchObject({
-      query: "FTS5 ranking",
+      terms: ["FTS5", "ranking"],
       limit: 3,
-      preferredSource: "codex",
       preferredWorkspace: "/repo-a",
-      filterSource: "codex",
       filterWorkspace: "/repo-a",
     });
     expect(repository.searchQuery?.createdAfter).toBeInstanceOf(Date);
@@ -90,21 +84,25 @@ describe("registerRecallTool", () => {
         {
           id: "memory-1",
           content: "Use FTS5 for recall and ranking.",
-          score: 1.15,
-          source: "codex",
+          score: 1,
           workspace: "/repo-a",
-          session: "session-a",
           created_at: "2026-03-07T10:00:00.000Z",
         },
       ],
     });
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: "Found 1 matching memory.",
+      },
+    ]);
   });
 
   it("returns an MCP validation error for an invalid date", async () => {
     const response = await client.callTool({
       name: "recall",
       arguments: {
-        query: "fts5",
+        terms: ["fts5"],
         created_after: "not-a-date",
       },
     });
@@ -116,5 +114,39 @@ describe("registerRecallTool", () => {
         text: "MCP error -32602: created_after must be a valid ISO 8601 datetime.",
       },
     ]);
+  });
+
+  it("returns an MCP validation error when all terms are blank", async () => {
+    const response = await client.callTool({
+      name: "recall",
+      arguments: {
+        terms: ["   ", ""],
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: "MCP error -32602: At least one search term is required.",
+      },
+    ]);
+  });
+
+  it("ignores legacy source-based recall controls", async () => {
+    await client.callTool({
+      name: "recall",
+      arguments: {
+        terms: ["fts5"],
+        preferred_source: "codex",
+        filter_source: "codex",
+      },
+    });
+
+    expect(repository.searchQuery).toMatchObject({
+      terms: ["fts5"],
+    });
+    expect(repository.searchQuery).not.toHaveProperty("preferredSource");
+    expect(repository.searchQuery).not.toHaveProperty("filterSource");
   });
 });
