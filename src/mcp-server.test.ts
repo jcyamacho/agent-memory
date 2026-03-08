@@ -41,6 +41,6 @@ describe("createMcpServer", () => {
   it("registers the memory tools", async () => {
     const response = await client.listTools();
 
-    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["save_memory", "search_memory"]);
+    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["recall", "remember"]);
   });
 });

@@ -4,9 +4,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MemoryRecord, MemoryRepository, MemorySearchQuery } from "../memory.ts";
 import { MemoryService } from "../memory-service.ts";
-import { registerSaveMemoryTool } from "./save-memory.ts";
+import { registerRememberTool } from "./remember.ts";
 
-class SaveOnlyRepository implements MemoryRepository {
+class RememberOnlyRepository implements MemoryRepository {
   public savedMemory: MemoryRecord | undefined;
 
   async save(memory: MemoryRecord): Promise<MemoryRecord> {
@@ -19,24 +19,24 @@ class SaveOnlyRepository implements MemoryRepository {
   }
 }
 
-describe("registerSaveMemoryTool", () => {
-  let repository: SaveOnlyRepository;
+describe("registerRememberTool", () => {
+  let repository: RememberOnlyRepository;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    repository = new SaveOnlyRepository();
+    repository = new RememberOnlyRepository();
     const memoryService = new MemoryService(repository);
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
     });
 
-    registerSaveMemoryTool(server, memoryService);
+    registerRememberTool(server, memoryService);
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({
-      name: "save-memory-test-client",
+      name: "remember-test-client",
       version: "1.0.0",
     });
 
@@ -51,7 +51,7 @@ describe("registerSaveMemoryTool", () => {
 
   it("saves memory and returns the structured MCP response", async () => {
     const response = await client.callTool({
-      name: "save_memory",
+      name: "remember",
       arguments: {
         content: "  Keep migrations isolated from repository logic.  ",
         source: "  codex  ",

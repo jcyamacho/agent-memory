@@ -4,9 +4,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "../memory.ts";
 import { MemoryService } from "../memory-service.ts";
-import { registerSearchMemoryTool } from "./search-memory.ts";
+import { registerRecallTool } from "./recall.ts";
 
-class SearchOnlyRepository implements MemoryRepository {
+class RecallOnlyRepository implements MemoryRepository {
   public searchQuery: MemorySearchQuery | undefined;
 
   async save(memory: MemoryRecord): Promise<MemoryRecord> {
@@ -30,24 +30,24 @@ class SearchOnlyRepository implements MemoryRepository {
   }
 }
 
-describe("registerSearchMemoryTool", () => {
-  let repository: SearchOnlyRepository;
+describe("registerRecallTool", () => {
+  let repository: RecallOnlyRepository;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    repository = new SearchOnlyRepository();
+    repository = new RecallOnlyRepository();
     const memoryService = new MemoryService(repository);
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
     });
 
-    registerSearchMemoryTool(server, memoryService);
+    registerRecallTool(server, memoryService);
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({
-      name: "search-memory-test-client",
+      name: "recall-test-client",
       version: "1.0.0",
     });
 
@@ -62,7 +62,7 @@ describe("registerSearchMemoryTool", () => {
 
   it("maps search input to the service and returns structured results", async () => {
     const response = await client.callTool({
-      name: "search_memory",
+      name: "recall",
       arguments: {
         query: "  FTS5 ranking  ",
         limit: 3,
@@ -102,7 +102,7 @@ describe("registerSearchMemoryTool", () => {
 
   it("returns an MCP validation error for an invalid date", async () => {
     const response = await client.callTool({
-      name: "search_memory",
+      name: "recall",
       arguments: {
         query: "fts5",
         created_after: "not-a-date",
