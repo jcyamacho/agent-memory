@@ -95,4 +95,91 @@ describe("SqliteMemoryRepository", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe("memory-3");
   });
+
+  it("returns partial matches with OR semantics", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "memory-4",
+      content: "Always use WAL mode for concurrent reads in SQLite.",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["WAL", "nonexistent"],
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("memory-4");
+  });
+
+  it("matches prefix for single-word terms", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "memory-5",
+      content: "Use configuration files for environment-specific settings.",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["config"],
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("memory-5");
+  });
+
+  it("matches stemmed word forms via porter tokenizer", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "memory-6",
+      content: "Running database migrations requires careful planning.",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["run", "migration"],
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("memory-6");
+  });
+
+  it("boosts preferred workspace results in ranking", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "other-workspace",
+      content: "SQLite is a great embedded database engine.",
+      workspace: "/repo-other",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    await repository.save({
+      id: "preferred-workspace",
+      content: "SQLite is a great embedded database engine.",
+      workspace: "/repo-preferred",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["SQLite", "database"],
+      limit: 5,
+      preferredWorkspace: "/repo-preferred",
+    });
+
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(results[0]?.id).toBe("preferred-workspace");
+    expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
+  });
 });

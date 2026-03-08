@@ -19,7 +19,7 @@ const MEMORY_SCHEMA = `
     content,
     content = 'memories',
     content_rowid = 'rowid',
-    tokenize = 'unicode61'
+    tokenize = 'porter unicode61'
   );
 
   CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN

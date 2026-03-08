@@ -13,6 +13,7 @@ interface MemoryRow {
 const CANDIDATE_MULTIPLIER = 5;
 const MIN_CANDIDATES = 25;
 const MAX_CANDIDATES = 100;
+const WORKSPACE_BIAS = 0.1;
 
 export class SqliteMemoryRepository implements MemoryRepository {
   private readonly database: SqliteDatabaseLike;
@@ -54,23 +55,35 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     try {
+      const selectParams: unknown[] = [];
+      const whereParams: unknown[] = [toFtsQuery(query.terms)];
+
+      let scoreExpr: string;
+      if (query.preferredWorkspace) {
+        scoreExpr = "MAX(0, -bm25(memories_fts) + CASE WHEN m.workspace = ? THEN ? ELSE 0.0 END)";
+        selectParams.push(query.preferredWorkspace, WORKSPACE_BIAS);
+      } else {
+        scoreExpr = "MAX(0, -bm25(memories_fts))";
+      }
+
       const whereClauses = ["memories_fts MATCH ?"];
-      const params: unknown[] = [toFtsQuery(query.terms)];
 
       if (query.filterWorkspace) {
         whereClauses.push("m.workspace = ?");
-        params.push(query.filterWorkspace);
+        whereParams.push(query.filterWorkspace);
       }
 
       if (query.createdAfter) {
         whereClauses.push("m.created_at >= ?");
-        params.push(query.createdAfter.getTime());
+        whereParams.push(query.createdAfter.getTime());
       }
 
       if (query.createdBefore) {
         whereClauses.push("m.created_at <= ?");
-        params.push(query.createdBefore.getTime());
+        whereParams.push(query.createdBefore.getTime());
       }
+
+      const params = [...selectParams, ...whereParams, toCandidateLimit(query.limit)];
 
       const statement = this.database.prepare(`
         SELECT
@@ -78,14 +91,13 @@ export class SqliteMemoryRepository implements MemoryRepository {
           m.content,
           m.workspace,
           m.created_at,
-          MAX(0, -bm25(memories_fts)) AS score
+          ${scoreExpr} AS score
         FROM memories_fts
         INNER JOIN memories AS m ON m.rowid = memories_fts.rowid
         WHERE ${whereClauses.join(" AND ")}
-        ORDER BY bm25(memories_fts)
+        ORDER BY score DESC
         LIMIT ?
       `);
-      params.push(toCandidateLimit(query.limit));
 
       const rows = statement.all(...params) as MemoryRow[];
 
@@ -107,4 +119,12 @@ export class SqliteMemoryRepository implements MemoryRepository {
 const toCandidateLimit = (limit: number): number =>
   Math.min(Math.max(limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES), MAX_CANDIDATES);
 
-const toFtsQuery = (terms: string[]): string => terms.map((term) => `"${term.replaceAll('"', '""')}"`).join(" ");
+const toFtsQuery = (terms: string[]): string => terms.map(toFtsTerm).join(" OR ");
+
+const toFtsTerm = (term: string): string => {
+  const escaped = term.replaceAll('"', '""');
+  if (term.includes(" ")) {
+    return `"${escaped}"`;
+  }
+  return `"${escaped}"*`;
+};

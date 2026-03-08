@@ -11,7 +11,6 @@ import type {
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 20;
-const WORKSPACE_BIAS = 0.1;
 
 export class MemoryService {
   private readonly repository: MemoryRepository;
@@ -56,14 +55,7 @@ export class MemoryService {
     };
 
     const results = await this.repository.search(normalizedQuery);
-
-    return results
-      .map((result) => ({
-        ...result,
-        score: rankResult(result, normalizedQuery),
-      }))
-      .sort((left, right) => right.score - left.score)
-      .slice(0, normalizedQuery.limit);
+    return results.slice(0, normalizedQuery.limit);
   }
 }
 
@@ -87,14 +79,4 @@ const normalizeOptionalString = (value: string | undefined): string | undefined 
 const normalizeTerms = (terms: string[]): string[] => {
   const normalizedTerms = terms.map((term) => term.trim()).filter(Boolean);
   return [...new Set(normalizedTerms)];
-};
-
-const rankResult = (result: MemorySearchResult, query: MemorySearchQuery): number => {
-  let score = result.score;
-
-  if (query.preferredWorkspace && result.workspace === query.preferredWorkspace) {
-    score += WORKSPACE_BIAS;
-  }
-
-  return Number(score.toFixed(6));
 };

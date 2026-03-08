@@ -84,7 +84,7 @@ describe("registerRecallTool", () => {
         {
           id: "memory-1",
           content: "Use FTS5 for recall and ranking.",
-          score: 1,
+          score: 0.9,
           workspace: "/repo-a",
           created_at: "2026-03-07T10:00:00.000Z",
         },

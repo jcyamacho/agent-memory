@@ -71,14 +71,14 @@ conventions, decisions, constraints, and stable workflow habits. Store one
 concise, self-contained fact per memory. Include `workspace` when available. Do
 not store secrets or temporary noise.
 
-For `memory_recall`, pass `terms` as 2-5 distinctive strings likely to appear
-verbatim in memory content. Prefer names, identifiers, acronyms, package names,
-file names, dates, and unique hyphenated strings. Use one item per term
-or short phrase. Avoid filler words because each extra term narrows the match.
+For `memory_recall`, pass `terms` as 2-5 distinctive strings that describe what
+you are looking for. Prefer names, identifiers, package names, file names, and
+short phrases. Each term is matched independently — more terms cast a wider net,
+and results matching multiple terms rank higher. Stemming is applied
+automatically, so exact word forms are not required.
 
 Use `preferred_workspace` to bias ranking. Use `filter_workspace` and
-`created_*` only for exact scoping. Keep `limit` small. If recall misses,
-remove uncertain search terms before increasing `limit`.
+`created_*` only for exact scoping. Keep `limit` small.
 ```
 
 ## What It Stores
