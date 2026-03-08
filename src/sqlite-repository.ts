@@ -63,7 +63,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     try {
       const whereClauses = ["memories_fts MATCH ?"];
-      const params: unknown[] = [query.query];
+      const params: unknown[] = [toFtsQuery(query.query)];
 
       if (query.filterSource) {
         whereClauses.push("m.source = ?");
@@ -123,3 +123,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
 const toCandidateLimit = (limit: number): number =>
   Math.min(Math.max(limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES), MAX_CANDIDATES);
+
+const toFtsQuery = (query: string): string =>
+  query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((term) => `"${term.replaceAll('"', '""')}"`)
+    .join(" ");

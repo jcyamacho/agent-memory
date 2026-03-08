@@ -60,4 +60,23 @@ describe("SqliteMemoryRepository", () => {
     expect(results[0]?.createdAt).toBeInstanceOf(Date);
     expect(storedRows).toEqual([{ created_at_type: "integer", created_at: createdAt.getTime() }]);
   });
+
+  it("supports hyphenated search queries", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await repository.save({
+      id: "memory-2",
+      content: "verification-memory-entry-2026-03-08",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      query: "verification-memory-entry-2026-03-08",
+      limit: 5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("memory-2");
+  });
 });
