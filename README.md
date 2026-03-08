@@ -13,6 +13,18 @@ decisions across sessions.
 
 ## Quick Start
 
+Claude CLI:
+
+```bash
+claude mcp add --scope user memory -- npx -y @jcyamacho/agent-memory
+```
+
+Codex CLI:
+
+```bash
+codex mcp add memory -- npx -y @jcyamacho/agent-memory
+```
+
 Example MCP server config:
 
 ```json
