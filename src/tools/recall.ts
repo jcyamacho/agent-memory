@@ -8,7 +8,7 @@ const recallInputSchema = {
     .array(z.string())
     .min(1)
     .describe(
-      "Search terms to match against remembered content. Use distinctive keywords, IDs, names, file names, or short phrases as separate items.",
+      "Search terms used to find relevant memories. Pass 2-5 short, distinctive items as separate array entries, such as project names, file names, APIs, feature names, issue IDs, or brief phrases. Avoid one long sentence.",
     ),
   limit: z
     .number()
@@ -16,23 +16,33 @@ const recallInputSchema = {
     .min(1)
     .max(MAX_LIMIT)
     .optional()
-    .describe("Maximum number of memory results to return. Use a small number when you only need the best matches."),
+    .describe("Maximum number of matches to return. Keep this small when you only need the strongest hits."),
   workspace: z
     .string()
     .optional()
     .describe(
-      "Workspace or repository path. Memories from this workspace rank higher, but other workspaces are not excluded.",
+      "Preferred repository or workspace path for ranking. Use the current project path to bias results toward local context, while still allowing cross-workspace matches.",
     ),
-  created_after: z.string().optional().describe("Only return memories created at or after this ISO 8601 timestamp."),
-  created_before: z.string().optional().describe("Only return memories created at or before this ISO 8601 timestamp."),
+  created_after: z
+    .string()
+    .optional()
+    .describe(
+      "Only return memories created at or after this ISO 8601 timestamp. Use it when you need to narrow recall to newer context.",
+    ),
+  created_before: z
+    .string()
+    .optional()
+    .describe(
+      "Only return memories created at or before this ISO 8601 timestamp. Use it when you need to narrow recall to older context.",
+    ),
 };
 
 const recallOutputSchema = {
   results: z.array(
     z.object({
       id: z.string().describe("Stable identifier for the remembered item."),
-      content: z.string().describe("The remembered content that matched the search terms."),
-      score: z.number().describe("Relevance score for this result. Higher means a better match."),
+      content: z.string().describe("Saved memory text that matched one or more search terms."),
+      score: z.number().describe("Relative relevance score for ranking results. Higher means a stronger match."),
       workspace: z.string().optional().describe("Workspace associated with the memory, if available."),
       created_at: z.string().describe("ISO 8601 timestamp showing when the memory was created."),
     }),
@@ -44,7 +54,7 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
     "recall",
     {
       description:
-        "Retrieve previously remembered context that may help with the current task. Use it for user preferences, project facts, prior decisions, constraints, or earlier conversation details.",
+        "Recall previously saved context for the current task. Best results usually come from 2-5 short, distinctive terms such as project names, file names, APIs, decisions, or issue IDs.",
       inputSchema: recallInputSchema,
       outputSchema: recallOutputSchema,
     },

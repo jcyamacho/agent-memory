@@ -66,19 +66,17 @@ Recommended LLM instructions to pair with this MCP:
 Use `memory_recall` at task start and whenever prior preferences, project facts,
 or decisions may matter.
 
-Use `memory_remember` only for durable, reusable context: preferences,
-conventions, decisions, constraints, and stable workflow habits. Store one
-concise, self-contained fact per memory. Include `workspace` when available. Do
-not store secrets or temporary noise.
+Use `memory_remember` only for durable context worth reusing later:
+preferences, conventions, decisions, constraints, and stable workflow habits.
+Store one concise fact per memory, include `workspace` when relevant, and avoid
+secrets or temporary notes.
 
-For `memory_recall`, pass `terms` as 2-5 distinctive strings that describe what
-you are looking for. Prefer names, identifiers, package names, file names, and
-short phrases. Each term is matched independently — more terms cast a wider net,
-and results matching multiple terms rank higher. Stemming is applied
-automatically, so exact word forms are not required.
+For `memory_recall`, pass 2-5 short, distinctive `terms` as separate array
+items. Prefer project names, file names, APIs, feature names, issue IDs, and
+brief phrases. Avoid one long sentence.
 
-Use `workspace` to bias ranking toward the current project. Use `created_*`
-only for exact scoping.
+Use `workspace` to bias results toward the current project. Use `created_*`
+only when time range matters.
 ```
 
 ## What It Stores
