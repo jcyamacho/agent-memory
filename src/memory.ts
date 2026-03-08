@@ -9,8 +9,7 @@ export interface MemoryRecord {
 export interface MemorySearchQuery {
   terms: string[];
   limit: number;
-  preferredWorkspace?: string;
-  filterWorkspace?: string;
+  workspace?: string;
   createdAfter?: Date;
   createdBefore?: Date;
 }
@@ -36,8 +35,7 @@ export interface SaveMemoryInput {
 export interface SearchMemoryInput {
   terms: string[];
   limit?: number;
-  preferredWorkspace?: string;
-  filterWorkspace?: string;
+  workspace?: string;
   createdAfter?: Date;
   createdBefore?: Date;
 }

@@ -77,8 +77,8 @@ short phrases. Each term is matched independently — more terms cast a wider ne
 and results matching multiple terms rank higher. Stemming is applied
 automatically, so exact word forms are not required.
 
-Use `preferred_workspace` to bias ranking. Use `filter_workspace` and
-`created_*` only for exact scoping. Keep `limit` small.
+Use `workspace` to bias ranking toward the current project. Use `created_*`
+only for exact scoping.
 ```
 
 ## What It Stores
@@ -116,8 +116,7 @@ Inputs:
 - `terms` -> 2-5 distinctive terms or short phrases that should appear in the
   memory content; avoid full natural-language questions
 - `limit` -> maximum results to return
-- `preferred_workspace` -> ranking hint for a workspace
-- `filter_workspace` -> exact workspace filter
+- `workspace` -> workspace or repo path; biases ranking toward this workspace
 - `created_after` -> ISO 8601 lower bound
 - `created_before` -> ISO 8601 upper bound
 

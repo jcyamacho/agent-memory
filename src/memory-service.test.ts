@@ -44,15 +44,14 @@ describe("MemoryService", () => {
     expect(result.createdAt.getTime()).toBe(result.updatedAt.getTime());
   });
 
-  it("passes workspace filters and preference hints to the repository", async () => {
+  it("passes workspace and date filters to the repository", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
     const results = await service.search({
       terms: [" shared ", "sqlite", "decisions"],
       limit: 3,
-      preferredWorkspace: "/tmp/project",
-      filterWorkspace: "/tmp/project",
+      workspace: "/tmp/project",
       createdAfter: new Date("2026-03-01T00:00:00.000Z"),
       createdBefore: new Date("2026-03-31T23:59:59.999Z"),
     });
@@ -60,8 +59,7 @@ describe("MemoryService", () => {
     expect(repository.lastSearchQuery).toEqual({
       terms: ["shared", "sqlite", "decisions"],
       limit: 3,
-      preferredWorkspace: "/tmp/project",
-      filterWorkspace: "/tmp/project",
+      workspace: "/tmp/project",
       createdAfter: new Date("2026-03-01T00:00:00.000Z"),
       createdBefore: new Date("2026-03-31T23:59:59.999Z"),
     });

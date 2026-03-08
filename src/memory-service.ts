@@ -9,8 +9,8 @@ import type {
   SearchMemoryInput,
 } from "./memory.ts";
 
-const DEFAULT_LIMIT = 5;
-const MAX_LIMIT = 20;
+export const DEFAULT_LIMIT = 15;
+export const MAX_LIMIT = 50;
 
 export class MemoryService {
   private readonly repository: MemoryRepository;
@@ -48,14 +48,12 @@ export class MemoryService {
     const normalizedQuery: MemorySearchQuery = {
       terms,
       limit: normalizeLimit(input.limit),
-      preferredWorkspace: normalizeOptionalString(input.preferredWorkspace),
-      filterWorkspace: normalizeOptionalString(input.filterWorkspace),
+      workspace: normalizeOptionalString(input.workspace),
       createdAfter: input.createdAfter,
       createdBefore: input.createdBefore,
     };
 
-    const results = await this.repository.search(normalizedQuery);
-    return results.slice(0, normalizedQuery.limit);
+    return this.repository.search(normalizedQuery);
   }
 }
 

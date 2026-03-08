@@ -64,8 +64,7 @@ describe("registerRecallTool", () => {
       arguments: {
         terms: ["  FTS5  ", "ranking"],
         limit: 3,
-        preferred_workspace: "  /repo-a  ",
-        filter_workspace: "  /repo-a  ",
+        workspace: "  /repo-a  ",
         created_after: "2026-03-01T00:00:00.000Z",
         created_before: "2026-03-31T23:59:59.000Z",
       },
@@ -74,8 +73,7 @@ describe("registerRecallTool", () => {
     expect(repository.searchQuery).toMatchObject({
       terms: ["FTS5", "ranking"],
       limit: 3,
-      preferredWorkspace: "/repo-a",
-      filterWorkspace: "/repo-a",
+      workspace: "/repo-a",
     });
     expect(repository.searchQuery?.createdAfter).toBeInstanceOf(Date);
     expect(repository.searchQuery?.createdBefore).toBeInstanceOf(Date);
@@ -133,13 +131,15 @@ describe("registerRecallTool", () => {
     ]);
   });
 
-  it("ignores legacy source-based recall controls", async () => {
+  it("ignores legacy source and workspace controls", async () => {
     await client.callTool({
       name: "recall",
       arguments: {
         terms: ["fts5"],
         preferred_source: "codex",
         filter_source: "codex",
+        preferred_workspace: "/repo-a",
+        filter_workspace: "/repo-a",
       },
     });
 
@@ -148,5 +148,7 @@ describe("registerRecallTool", () => {
     });
     expect(repository.searchQuery).not.toHaveProperty("preferredSource");
     expect(repository.searchQuery).not.toHaveProperty("filterSource");
+    expect(repository.searchQuery).not.toHaveProperty("preferredWorkspace");
+    expect(repository.searchQuery).not.toHaveProperty("filterWorkspace");
   });
 });

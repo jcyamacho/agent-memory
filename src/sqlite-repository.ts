@@ -10,9 +10,6 @@ interface MemoryRow {
   score: number;
 }
 
-const CANDIDATE_MULTIPLIER = 5;
-const MIN_CANDIDATES = 25;
-const MAX_CANDIDATES = 100;
 const WORKSPACE_BIAS = 0.1;
 
 export class SqliteMemoryRepository implements MemoryRepository {
@@ -59,19 +56,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
       const whereParams: unknown[] = [toFtsQuery(query.terms)];
 
       let scoreExpr: string;
-      if (query.preferredWorkspace) {
+      if (query.workspace) {
         scoreExpr = "MAX(0, -bm25(memories_fts) + CASE WHEN m.workspace = ? THEN ? ELSE 0.0 END)";
-        selectParams.push(query.preferredWorkspace, WORKSPACE_BIAS);
+        selectParams.push(query.workspace, WORKSPACE_BIAS);
       } else {
         scoreExpr = "MAX(0, -bm25(memories_fts))";
       }
 
       const whereClauses = ["memories_fts MATCH ?"];
-
-      if (query.filterWorkspace) {
-        whereClauses.push("m.workspace = ?");
-        whereParams.push(query.filterWorkspace);
-      }
 
       if (query.createdAfter) {
         whereClauses.push("m.created_at >= ?");
@@ -83,7 +75,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
         whereParams.push(query.createdBefore.getTime());
       }
 
-      const params = [...selectParams, ...whereParams, toCandidateLimit(query.limit)];
+      const params = [...selectParams, ...whereParams, query.limit];
 
       const statement = this.database.prepare(`
         SELECT
@@ -115,9 +107,6 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
   }
 }
-
-const toCandidateLimit = (limit: number): number =>
-  Math.min(Math.max(limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES), MAX_CANDIDATES);
 
 const toFtsQuery = (terms: string[]): string => terms.map(toFtsTerm).join(" OR ");
 

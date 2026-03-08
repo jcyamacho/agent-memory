@@ -40,7 +40,7 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite", "WAL", "file"],
       limit: 5,
-      preferredWorkspace: "/repo-a",
+      workspace: "/repo-a",
     });
 
     const storedRows = database
@@ -175,7 +175,7 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite", "database"],
       limit: 5,
-      preferredWorkspace: "/repo-preferred",
+      workspace: "/repo-preferred",
     });
 
     expect(results.length).toBeGreaterThanOrEqual(2);

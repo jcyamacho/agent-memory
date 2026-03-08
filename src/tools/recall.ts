@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import type { MemoryService } from "../memory-service.ts";
+import { MAX_LIMIT, type MemoryService } from "../memory-service.ts";
 import { parseOptionalDate, toMcpError } from "./shared.ts";
 
 const recallInputSchema = {
@@ -14,19 +14,15 @@ const recallInputSchema = {
     .number()
     .int()
     .min(1)
-    .max(20)
+    .max(MAX_LIMIT)
     .optional()
     .describe("Maximum number of memory results to return. Use a small number when you only need the best matches."),
-  preferred_workspace: z
+  workspace: z
     .string()
     .optional()
     .describe(
-      "Preferred workspace or repository path to rank higher when relevant. This does not exclude other workspaces.",
+      "Workspace or repository path. Memories from this workspace rank higher, but other workspaces are not excluded.",
     ),
-  filter_workspace: z
-    .string()
-    .optional()
-    .describe("Only return memories from this exact workspace or repository path."),
   created_after: z.string().optional().describe("Only return memories created at or after this ISO 8601 timestamp."),
   created_before: z.string().optional().describe("Only return memories created at or before this ISO 8601 timestamp."),
 };
@@ -52,13 +48,12 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
       inputSchema: recallInputSchema,
       outputSchema: recallOutputSchema,
     },
-    async ({ terms, limit, preferred_workspace, filter_workspace, created_after, created_before }) => {
+    async ({ terms, limit, workspace, created_after, created_before }) => {
       try {
         const results = await memoryService.search({
           terms,
           limit,
-          preferredWorkspace: preferred_workspace,
-          filterWorkspace: filter_workspace,
+          workspace,
           createdAfter: parseOptionalDate(created_after, "created_after"),
           createdBefore: parseOptionalDate(created_before, "created_before"),
         });
