@@ -24,6 +24,14 @@
 - Preserve the flat project structure unless a change clearly justifies more
   nesting.
 
+## Architecture
+
+- The repository layer handles retrieval and normalizes scores to 0..1
+  (`NormalizedScore`). Ranking policy (workspace preference, recency) belongs
+  in the service layer, not in SQL queries.
+- MCP tool outputs should only include server-generated values. Do not echo
+  input parameters back to the caller.
+
 ## Docs and UX
 
 - Optimize `README.md` for people using the MCP more than people developing it.
