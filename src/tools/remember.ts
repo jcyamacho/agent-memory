@@ -17,8 +17,6 @@ const rememberInputSchema = {
 
 const rememberOutputSchema = {
   id: z.string().describe("Stable identifier for the saved memory."),
-  workspace: z.string().optional().describe("Workspace stored with the memory, if provided."),
-  created_at: z.string().describe("ISO 8601 timestamp showing when the memory was created."),
 };
 
 export const registerRememberTool = (server: McpServer, memoryService: MemoryService): void => {
@@ -39,8 +37,6 @@ export const registerRememberTool = (server: McpServer, memoryService: MemorySer
 
         const structuredContent = {
           id: memory.id,
-          workspace: memory.workspace,
-          created_at: memory.createdAt.toISOString(),
         };
 
         return {

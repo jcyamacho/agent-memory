@@ -63,14 +63,9 @@ describe("registerRememberTool", () => {
       content: "Keep migrations isolated from repository logic.",
       workspace: "/repo-a",
     });
-    expect(response.structuredContent).toMatchObject({
+    expect(response.structuredContent).toEqual({
       id: expect.any(String),
-      workspace: "/repo-a",
-      created_at: expect.any(String),
     });
-    expect(response.structuredContent).not.toHaveProperty("content");
-    expect(response.structuredContent).not.toHaveProperty("source");
-    expect(response.structuredContent).not.toHaveProperty("session");
     expect(response.content).toEqual([
       {
         type: "text",
