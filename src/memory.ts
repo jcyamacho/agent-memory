@@ -9,17 +9,21 @@ export interface MemoryRecord {
 export interface MemorySearchQuery {
   terms: string[];
   limit: number;
-  workspace?: string;
   createdAfter?: Date;
   createdBefore?: Date;
 }
 
+declare const NormalizedScoreBrand: unique symbol;
+export type NormalizedScore = number & { readonly [NormalizedScoreBrand]: true };
+export const toNormalizedScore = (value: number): NormalizedScore => value as NormalizedScore;
+
 export interface MemorySearchResult {
   id: string;
   content: string;
-  score: number;
+  score: NormalizedScore;
   workspace?: string;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface MemoryRepository {

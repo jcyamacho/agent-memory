@@ -1,5 +1,6 @@
 import { PersistenceError } from "./errors.ts";
 import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "./memory.ts";
+import { toNormalizedScore } from "./memory.ts";
 import type { SqliteDatabaseLike, SqlStatement } from "./sqlite-db.ts";
 
 interface MemoryRow {
@@ -7,10 +8,9 @@ interface MemoryRow {
   content: string;
   workspace: string | null;
   created_at: number;
+  updated_at: number;
   score: number;
 }
-
-const WORKSPACE_BIAS = 0.1;
 
 export class SqliteMemoryRepository implements MemoryRepository {
   private readonly database: SqliteDatabaseLike;
@@ -52,16 +52,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     try {
-      const selectParams: unknown[] = [];
       const whereParams: unknown[] = [toFtsQuery(query.terms)];
-
-      let scoreExpr: string;
-      if (query.workspace) {
-        scoreExpr = "MAX(0, -bm25(memories_fts) + CASE WHEN m.workspace = ? THEN ? ELSE 0.0 END)";
-        selectParams.push(query.workspace, WORKSPACE_BIAS);
-      } else {
-        scoreExpr = "MAX(0, -bm25(memories_fts))";
-      }
 
       const whereClauses = ["memories_fts MATCH ?"];
 
@@ -75,7 +66,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
         whereParams.push(query.createdBefore.getTime());
       }
 
-      const params = [...selectParams, ...whereParams, query.limit];
+      const params = [...whereParams, query.limit];
 
       const statement = this.database.prepare(`
         SELECT
@@ -83,7 +74,8 @@ export class SqliteMemoryRepository implements MemoryRepository {
           m.content,
           m.workspace,
           m.created_at,
-          ${scoreExpr} AS score
+          m.updated_at,
+          MAX(0, -bm25(memories_fts)) AS score
         FROM memories_fts
         INNER JOIN memories AS m ON m.rowid = memories_fts.rowid
         WHERE ${whereClauses.join(" AND ")}
@@ -93,12 +85,15 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
       const rows = statement.all(...params) as MemoryRow[];
 
+      const maxScore = Math.max(...rows.map((row) => row.score), 0);
+
       return rows.map((row) => ({
         id: row.id,
         content: row.content,
-        score: row.score,
+        score: toNormalizedScore(maxScore > 0 ? row.score / maxScore : 0),
         workspace: row.workspace ?? undefined,
         createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
       }));
     } catch (error) {
       throw new PersistenceError("Failed to search memories.", {

@@ -4,6 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { toNormalizedScore } from "./memory.ts";
 import { initializeMemoryDatabase, type SqliteDatabaseLike } from "./sqlite-db.ts";
 import { SqliteMemoryRepository } from "./sqlite-repository.ts";
 
@@ -40,7 +41,6 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite", "WAL", "file"],
       limit: 5,
-      workspace: "/repo-a",
     });
 
     const storedRows = database
@@ -53,8 +53,10 @@ describe("SqliteMemoryRepository", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe("memory-1");
     expect(results[0]?.workspace).toBe("/repo-a");
-    expect(results[0]?.score).toBeGreaterThan(0);
+    expect(results[0]?.score).toBe(toNormalizedScore(1));
     expect(results[0]?.createdAt).toBeInstanceOf(Date);
+    expect(results[0]?.updatedAt).toBeInstanceOf(Date);
+    expect(results[0]?.updatedAt.getTime()).toBe(createdAt.getTime());
     expect(storedRows).toEqual([{ created_at_type: "integer", created_at: createdAt.getTime() }]);
   });
 
@@ -153,12 +155,55 @@ describe("SqliteMemoryRepository", () => {
     expect(results[0]?.id).toBe("memory-6");
   });
 
-  it("boosts preferred workspace results in ranking", async () => {
+  it("filters results by createdAfter", async () => {
+    const old = new Date("2026-03-01T00:00:00.000Z");
+    const recent = new Date("2026-03-10T00:00:00.000Z");
+
+    await repository.save({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
+    await repository.save({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
+
+    const results = await repository.search({
+      terms: ["SQLite"],
+      limit: 10,
+      createdAfter: new Date("2026-03-05T00:00:00.000Z"),
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("recent");
+  });
+
+  it("filters results by createdBefore", async () => {
+    const old = new Date("2026-03-01T00:00:00.000Z");
+    const recent = new Date("2026-03-10T00:00:00.000Z");
+
+    await repository.save({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
+    await repository.save({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
+
+    const results = await repository.search({
+      terms: ["SQLite"],
+      limit: 10,
+      createdBefore: new Date("2026-03-05T00:00:00.000Z"),
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("old");
+  });
+
+  it("returns an empty array when no documents match", async () => {
+    const results = await repository.search({
+      terms: ["nonexistent"],
+      limit: 5,
+    });
+
+    expect(results).toEqual([]);
+  });
+
+  it("preserves raw FTS score ordering without service-level workspace reranking", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
     await repository.save({
-      id: "other-workspace",
-      content: "SQLite is a great embedded database engine.",
+      id: "higher-score",
+      content: "SQLite database engine database database database.",
       workspace: "/repo-other",
       createdAt,
       updatedAt: createdAt,
@@ -175,11 +220,12 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite", "database"],
       limit: 5,
-      workspace: "/repo-preferred",
     });
 
     expect(results.length).toBeGreaterThanOrEqual(2);
-    expect(results[0]?.id).toBe("preferred-workspace");
-    expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
+    expect(results[0]?.id).toBe("higher-score");
+    expect(results[0]?.score).toBe(toNormalizedScore(1));
+    expect(results[1]?.score).toBeGreaterThan(0);
+    expect(results[1]?.score).toBeLessThan(1);
   });
 });

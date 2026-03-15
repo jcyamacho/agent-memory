@@ -8,9 +8,16 @@ import type {
   SaveMemoryInput,
   SearchMemoryInput,
 } from "./memory.ts";
+import { toNormalizedScore } from "./memory.ts";
 
 export const DEFAULT_LIMIT = 15;
 export const MAX_LIMIT = 50;
+export const RECALL_CANDIDATE_LIMIT_MULTIPLIER = 2;
+
+const RETRIEVAL_SCORE_WEIGHT = 8;
+const WORKSPACE_MATCH_WEIGHT = 2;
+const RECENCY_WEIGHT = 1;
+const MAX_COMPOSITE_SCORE = RETRIEVAL_SCORE_WEIGHT + WORKSPACE_MATCH_WEIGHT + RECENCY_WEIGHT;
 
 export class MemoryService {
   private readonly repository: MemoryRepository;
@@ -45,15 +52,18 @@ export class MemoryService {
       throw new ValidationError("At least one search term is required.");
     }
 
+    const requestedLimit = normalizeLimit(input.limit);
+    const workspace = normalizeOptionalString(input.workspace);
     const normalizedQuery: MemorySearchQuery = {
       terms,
-      limit: normalizeLimit(input.limit),
-      workspace: normalizeOptionalString(input.workspace),
+      limit: requestedLimit * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
       createdAfter: input.createdAfter,
       createdBefore: input.createdBefore,
     };
 
-    return this.repository.search(normalizedQuery);
+    const results = await this.repository.search(normalizedQuery);
+    const reranked = rerankSearchResults(results, workspace);
+    return reranked.sort((a, b) => b.score - a.score).slice(0, requestedLimit);
   }
 }
 
@@ -77,4 +87,30 @@ const normalizeOptionalString = (value: string | undefined): string | undefined 
 const normalizeTerms = (terms: string[]): string[] => {
   const normalizedTerms = terms.map((term) => term.trim()).filter(Boolean);
   return [...new Set(normalizedTerms)];
+};
+
+const rerankSearchResults = (results: MemorySearchResult[], workspace: string | undefined): MemorySearchResult[] => {
+  if (results.length <= 1) {
+    return results;
+  }
+
+  const updatedAtTimes = results.map((result) => result.updatedAt.getTime());
+  const minUpdatedAt = Math.min(...updatedAtTimes);
+  const maxUpdatedAt = Math.max(...updatedAtTimes);
+
+  return [...results].map((result) => {
+    const workspaceScore = workspace && result.workspace === workspace ? 1 : 0;
+    const recencyScore =
+      maxUpdatedAt === minUpdatedAt ? 0 : (result.updatedAt.getTime() - minUpdatedAt) / (maxUpdatedAt - minUpdatedAt);
+    const combinedScore =
+      (result.score * RETRIEVAL_SCORE_WEIGHT +
+        workspaceScore * WORKSPACE_MATCH_WEIGHT +
+        recencyScore * RECENCY_WEIGHT) /
+      MAX_COMPOSITE_SCORE;
+
+    return {
+      ...result,
+      score: toNormalizedScore(combinedScore),
+    };
+  });
 };
