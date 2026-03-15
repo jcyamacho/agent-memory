@@ -12,10 +12,10 @@ import { toNormalizedScore } from "./memory.ts";
 
 export const DEFAULT_LIMIT = 15;
 export const MAX_LIMIT = 50;
-export const RECALL_CANDIDATE_LIMIT_MULTIPLIER = 2;
+export const RECALL_CANDIDATE_LIMIT_MULTIPLIER = 3;
 
 const RETRIEVAL_SCORE_WEIGHT = 8;
-const WORKSPACE_MATCH_WEIGHT = 2;
+const WORKSPACE_MATCH_WEIGHT = 4;
 const RECENCY_WEIGHT = 1;
 const MAX_COMPOSITE_SCORE = RETRIEVAL_SCORE_WEIGHT + WORKSPACE_MATCH_WEIGHT + RECENCY_WEIGHT;
 
@@ -89,6 +89,14 @@ const normalizeTerms = (terms: string[]): string[] => {
   return [...new Set(normalizedTerms)];
 };
 
+const GLOBAL_WORKSPACE_SCORE = 0.5;
+
+const computeWorkspaceScore = (memoryWs: string | undefined, queryWs: string | undefined): number => {
+  if (!memoryWs) return GLOBAL_WORKSPACE_SCORE;
+  if (queryWs && memoryWs === queryWs) return 1;
+  return 0;
+};
+
 const rerankSearchResults = (results: MemorySearchResult[], workspace: string | undefined): MemorySearchResult[] => {
   if (results.length <= 1) {
     return results;
@@ -99,7 +107,7 @@ const rerankSearchResults = (results: MemorySearchResult[], workspace: string | 
   const maxUpdatedAt = Math.max(...updatedAtTimes);
 
   return [...results].map((result) => {
-    const workspaceScore = workspace && result.workspace === workspace ? 1 : 0;
+    const workspaceScore = computeWorkspaceScore(result.workspace, workspace);
     const recencyScore =
       maxUpdatedAt === minUpdatedAt ? 0 : (result.updatedAt.getTime() - minUpdatedAt) / (maxUpdatedAt - minUpdatedAt);
     const combinedScore =

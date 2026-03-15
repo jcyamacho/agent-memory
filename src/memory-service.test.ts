@@ -245,6 +245,70 @@ describe("MemoryService", () => {
     expect(repository.lastSearchQuery?.terms).toEqual(["sqlite", "WAL"]);
   });
 
+  it("ranks global memories (no workspace) above non-matching workspace when other signals are equal", async () => {
+    const repository = new FakeMemoryRepository();
+    const timestamp = new Date("2026-03-01T00:00:00.000Z");
+    repository.searchResults = [
+      {
+        id: "wrong-workspace",
+        content: "Use shared sqlite decisions to coordinate agents.",
+        score: toNormalizedScore(0.8),
+        workspace: "/other",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: "global-memory",
+        content: "Use shared sqlite decisions to coordinate agents.",
+        score: toNormalizedScore(0.8),
+        workspace: undefined,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+    const service = new MemoryService(repository);
+
+    const results = await service.search({
+      terms: ["shared sqlite", "decisions"],
+      limit: 2,
+      workspace: "/tmp/project",
+    });
+
+    expect(results[0]?.id).toBe("global-memory");
+  });
+
+  it("ranks matching workspace above global memories when other signals are equal", async () => {
+    const repository = new FakeMemoryRepository();
+    const timestamp = new Date("2026-03-01T00:00:00.000Z");
+    repository.searchResults = [
+      {
+        id: "global-memory",
+        content: "Use shared sqlite decisions to coordinate agents.",
+        score: toNormalizedScore(0.8),
+        workspace: undefined,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: "matching-workspace",
+        content: "Use shared sqlite decisions to coordinate agents.",
+        score: toNormalizedScore(0.8),
+        workspace: "/tmp/project",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+    const service = new MemoryService(repository);
+
+    const results = await service.search({
+      terms: ["shared sqlite", "decisions"],
+      limit: 2,
+      workspace: "/tmp/project",
+    });
+
+    expect(results[0]?.id).toBe("matching-workspace");
+  });
+
   it("ranks recently updated memories above older ones when other signals are equal", async () => {
     const repository = new FakeMemoryRepository();
     const createdAt = new Date("2026-03-01T00:00:00.000Z");
