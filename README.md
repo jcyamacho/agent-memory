@@ -60,23 +60,12 @@ With a custom database path:
 }
 ```
 
-Recommended LLM instructions to pair with this MCP:
+Optional LLM instructions to reinforce the MCP's built-in guidance:
 
 ```text
-Use `memory_recall` at task start and whenever prior preferences, project facts,
-or decisions may matter.
-
-Use `memory_remember` only for durable context worth reusing later:
-preferences, conventions, decisions, constraints, and stable workflow habits.
-Store one concise fact per memory, include `workspace` when relevant, and avoid
-secrets or temporary notes.
-
-For `memory_recall`, pass 2-5 short, distinctive `terms` as separate array
-items. Prefer project names, file names, APIs, feature names, issue IDs, and
-brief phrases. Avoid one long sentence.
-
-Use `workspace` to bias results toward the current project. Use `created_*`
-only when time range matters.
+Use `recall` at the start of every conversation. Use `remember` when the user
+corrects your approach, a key decision is established, or you learn project
+context not obvious from the code.
 ```
 
 ## What It Stores
@@ -130,25 +119,31 @@ Inputs:
   memory content; avoid full natural-language questions
 - `limit` -> maximum results to return
 - `workspace` -> workspace or repo path; biases ranking toward this workspace
-- `created_after` -> ISO 8601 lower bound
-- `created_before` -> ISO 8601 upper bound
+- `updated_after` -> ISO 8601 lower bound
+- `updated_before` -> ISO 8601 upper bound
 
 Output:
 
 - `results[]` with `id`, `content`, `score`, `workspace`, and `updated_at`
 
-## Setup
+## How Ranking Works
 
-For normal usage:
+`recall` uses a multi-signal ranking system to surface the most relevant
+memories:
 
-- Node.js
+1. **Text relevance** is the primary signal -- memories whose content best
+   matches your search terms rank highest.
+2. **Workspace match** is a strong secondary signal. When you pass `workspace`,
+   memories saved with the same workspace rank above unrelated ones.
+3. **Global memories** (saved without a workspace) are treated as relevant
+   everywhere. They rank between workspace-matching and non-matching memories.
+4. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
+   ones when other signals are equal.
 
-For local development or running from source:
+For best results, always pass `workspace` when calling `recall`. Save memories
+without a workspace only when they apply across all projects.
 
-- Bun
-- Node.js
-
-### Database location
+## Database location
 
 By default, the SQLite database is created at:
 
@@ -171,9 +166,17 @@ Set `AGENT_MEMORY_DB_PATH` when you want to:
 Beta note: schema changes are not migrated. If you are upgrading from an older
 beta, delete the existing memory DB and let the server create a new one.
 
-## Run from source
+## Development
 
-If you are developing locally instead of using the published package:
+For working on the project itself or running from source. Requires Bun and
+Node.js.
+
+```bash
+bun install
+bun run build
+```
+
+To use a local build as your MCP server:
 
 ```json
 {
@@ -182,38 +185,16 @@ If you are developing locally instead of using the published package:
       "command": "node",
       "args": [
         "/absolute/path/to/agent-memory/dist/index.js"
-      ],
-      "env": {
-        "AGENT_MEMORY_DB_PATH": "/absolute/path/to/memory.db"
-      }
+      ]
     }
   }
 }
 ```
 
-Build first:
-
 ```bash
-bun install
-bun run build
-```
-
-## Local Development
-
-Only needed if you want to work on the project itself.
-
-```bash
-bun install
 bun lint
 bun test
-bun run build
 ```
-
-## Notes
-
-- `better-sqlite3` stays external in the build so its native binding loads
-  correctly at runtime.
-- Runtime output is Node-compatible and built to `dist/index.js`.
 
 ## License
 

@@ -155,7 +155,7 @@ describe("SqliteMemoryRepository", () => {
     expect(results[0]?.id).toBe("memory-6");
   });
 
-  it("filters results by createdAfter", async () => {
+  it("filters results by updatedAfter", async () => {
     const old = new Date("2026-03-01T00:00:00.000Z");
     const recent = new Date("2026-03-10T00:00:00.000Z");
 
@@ -165,14 +165,14 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite"],
       limit: 10,
-      createdAfter: new Date("2026-03-05T00:00:00.000Z"),
+      updatedAfter: new Date("2026-03-05T00:00:00.000Z"),
     });
 
     expect(results).toHaveLength(1);
     expect(results[0]?.id).toBe("recent");
   });
 
-  it("filters results by createdBefore", async () => {
+  it("filters results by updatedBefore", async () => {
     const old = new Date("2026-03-01T00:00:00.000Z");
     const recent = new Date("2026-03-10T00:00:00.000Z");
 
@@ -182,7 +182,7 @@ describe("SqliteMemoryRepository", () => {
     const results = await repository.search({
       terms: ["SQLite"],
       limit: 10,
-      createdBefore: new Date("2026-03-05T00:00:00.000Z"),
+      updatedBefore: new Date("2026-03-05T00:00:00.000Z"),
     });
 
     expect(results).toHaveLength(1);

@@ -7,12 +7,14 @@ const rememberInputSchema = {
   content: z
     .string()
     .describe(
-      "The exact fact, preference, decision, or context to remember for future retrieval. Use a self-contained sentence or short note.",
+      "The fact, preference, decision, or context to remember. Use a single self-contained sentence or short note. One fact per memory.",
     ),
   workspace: z
     .string()
     .optional()
-    .describe("Repository or workspace path this memory belongs to. Use it to keep memories scoped to a project."),
+    .describe(
+      "Always pass the current working directory to scope this memory to a project. Omit only when the memory applies across all projects (global preference).",
+    ),
 };
 
 const rememberOutputSchema = {
@@ -24,7 +26,7 @@ export const registerRememberTool = (server: McpServer, memoryService: MemorySer
     "remember",
     {
       description:
-        "Save durable context for later recall. Use this for user preferences, project facts, decisions, constraints, or other information worth remembering across turns and tools.",
+        "Save durable context for later recall. Use this when the user corrects your approach, states a preference, a key decision or convention is established, or you learn project context not obvious from the code. Store one concise fact per memory. Do not store secrets, ephemeral task state, or information already in the codebase.",
       inputSchema: rememberInputSchema,
       outputSchema: rememberOutputSchema,
     },

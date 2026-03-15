@@ -67,8 +67,8 @@ describe("registerRecallTool", () => {
         terms: ["  FTS5  ", "ranking"],
         limit: 3,
         workspace: "  /repo-a  ",
-        created_after: "2026-03-01T00:00:00.000Z",
-        created_before: "2026-03-31T23:59:59.000Z",
+        updated_after: "2026-03-01T00:00:00.000Z",
+        updated_before: "2026-03-31T23:59:59.000Z",
       },
     });
 
@@ -76,8 +76,8 @@ describe("registerRecallTool", () => {
       terms: ["FTS5", "ranking"],
       limit: 3 * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
     });
-    expect(repository.searchQuery?.createdAfter).toBeInstanceOf(Date);
-    expect(repository.searchQuery?.createdBefore).toBeInstanceOf(Date);
+    expect(repository.searchQuery?.updatedAfter).toBeInstanceOf(Date);
+    expect(repository.searchQuery?.updatedBefore).toBeInstanceOf(Date);
     expect(response.structuredContent).toEqual({
       results: [
         {
@@ -102,7 +102,7 @@ describe("registerRecallTool", () => {
       name: "recall",
       arguments: {
         terms: ["fts5"],
-        created_after: "not-a-date",
+        updated_after: "not-a-date",
       },
     });
 
@@ -110,7 +110,7 @@ describe("registerRecallTool", () => {
     expect(response.content).toEqual([
       {
         type: "text",
-        text: "MCP error -32602: created_after must be a valid ISO 8601 datetime.",
+        text: "MCP error -32602: updated_after must be a valid ISO 8601 datetime.",
       },
     ]);
   });

@@ -9,8 +9,8 @@ export interface MemoryRecord {
 export interface MemorySearchQuery {
   terms: string[];
   limit: number;
-  createdAfter?: Date;
-  createdBefore?: Date;
+  updatedAfter?: Date;
+  updatedBefore?: Date;
 }
 
 declare const NormalizedScoreBrand: unique symbol;
@@ -60,6 +60,6 @@ export interface SearchMemoryInput {
   terms: string[];
   limit?: number;
   workspace?: string;
-  createdAfter?: Date;
-  createdBefore?: Date;
+  updatedAfter?: Date;
+  updatedBefore?: Date;
 }

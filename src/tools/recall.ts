@@ -8,7 +8,7 @@ const recallInputSchema = {
     .array(z.string())
     .min(1)
     .describe(
-      "Search terms used to find relevant memories. Pass 2-5 short, distinctive items as separate array entries, such as project names, file names, APIs, feature names, issue IDs, or brief phrases. Avoid one long sentence.",
+      "Search terms used to find relevant memories. Pass 2-5 short, distinctive items as separate array entries. Focus on the topic, not the project name -- use workspace for project scoping. Prefer file names, APIs, feature names, or brief phrases. Avoid full sentences.",
     ),
   limit: z
     .number()
@@ -21,19 +21,19 @@ const recallInputSchema = {
     .string()
     .optional()
     .describe(
-      "Preferred repository or workspace path for ranking. Use the current project path to bias results toward local context, while still allowing cross-workspace matches.",
+      "Always pass the current working directory. Biases ranking toward the active project while still allowing cross-workspace matches. Memories saved without a workspace are treated as global and rank between matching and non-matching results.",
     ),
-  created_after: z
+  updated_after: z
     .string()
     .optional()
     .describe(
-      "Only return memories created at or after this ISO 8601 timestamp. Use it when you need to narrow recall to newer context.",
+      "Only return memories updated at or after this ISO 8601 timestamp. Use it when you need to narrow recall to newer context.",
     ),
-  created_before: z
+  updated_before: z
     .string()
     .optional()
     .describe(
-      "Only return memories created at or before this ISO 8601 timestamp. Use it when you need to narrow recall to older context.",
+      "Only return memories updated at or before this ISO 8601 timestamp. Use it when you need to narrow recall to older context.",
     ),
 };
 
@@ -54,18 +54,18 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
     "recall",
     {
       description:
-        "Recall previously saved context for the current task. Best results usually come from 2-5 short, distinctive terms such as project names, file names, APIs, decisions, or issue IDs.",
+        "Recall previously saved context for the current task. Call this at the start of every conversation and whenever prior preferences, decisions, or project context may be relevant. Pass workspace to bias results toward the active project.",
       inputSchema: recallInputSchema,
       outputSchema: recallOutputSchema,
     },
-    async ({ terms, limit, workspace, created_after, created_before }) => {
+    async ({ terms, limit, workspace, updated_after, updated_before }) => {
       try {
         const results = await memoryService.search({
           terms,
           limit,
           workspace,
-          createdAfter: parseOptionalDate(created_after, "created_after"),
-          createdBefore: parseOptionalDate(created_before, "created_before"),
+          updatedAfter: parseOptionalDate(updated_after, "updated_after"),
+          updatedBefore: parseOptionalDate(updated_before, "updated_before"),
         });
 
         const structuredContent = {

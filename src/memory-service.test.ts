@@ -55,15 +55,15 @@ describe("MemoryService", () => {
       terms: [" shared ", "sqlite", "decisions"],
       limit: 3,
       workspace: "/tmp/project",
-      createdAfter: new Date("2026-03-01T00:00:00.000Z"),
-      createdBefore: new Date("2026-03-31T23:59:59.999Z"),
+      updatedAfter: new Date("2026-03-01T00:00:00.000Z"),
+      updatedBefore: new Date("2026-03-31T23:59:59.999Z"),
     });
 
     expect(repository.lastSearchQuery).toEqual({
       terms: ["shared", "sqlite", "decisions"],
       limit: 3 * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
-      createdAfter: new Date("2026-03-01T00:00:00.000Z"),
-      createdBefore: new Date("2026-03-31T23:59:59.999Z"),
+      updatedAfter: new Date("2026-03-01T00:00:00.000Z"),
+      updatedBefore: new Date("2026-03-31T23:59:59.999Z"),
     });
     expect(results).toHaveLength(1);
     expect(results[0]?.score).toBeGreaterThan(0);

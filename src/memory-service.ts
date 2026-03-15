@@ -57,8 +57,8 @@ export class MemoryService {
     const normalizedQuery: MemorySearchQuery = {
       terms,
       limit: requestedLimit * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
-      createdAfter: input.createdAfter,
-      createdBefore: input.createdBefore,
+      updatedAfter: input.updatedAfter,
+      updatedBefore: input.updatedBefore,
     };
 
     const results = await this.repository.search(normalizedQuery);

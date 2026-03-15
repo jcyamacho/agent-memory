@@ -80,14 +80,14 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
 
       const whereClauses = ["memories_fts MATCH ?"];
 
-      if (query.createdAfter) {
-        whereClauses.push("m.created_at >= ?");
-        whereParams.push(query.createdAfter.getTime());
+      if (query.updatedAfter) {
+        whereClauses.push("m.updated_at >= ?");
+        whereParams.push(query.updatedAfter.getTime());
       }
 
-      if (query.createdBefore) {
-        whereClauses.push("m.created_at <= ?");
-        whereParams.push(query.createdBefore.getTime());
+      if (query.updatedBefore) {
+        whereClauses.push("m.updated_at <= ?");
+        whereParams.push(query.updatedBefore.getTime());
       }
 
       const params = [...whereParams, query.limit];
