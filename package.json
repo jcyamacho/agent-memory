@@ -1,7 +1,7 @@
 {
   "name": "@jcyamacho/agent-memory",
   "main": "dist/index.js",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "bin": {
     "agent-memory": "dist/index.js"
   },
