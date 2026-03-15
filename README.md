@@ -102,8 +102,6 @@ Inputs:
 Output:
 
 - `id`
-- `workspace`
-- `created_at`
 
 ### `recall`
 
@@ -120,7 +118,7 @@ Inputs:
 
 Output:
 
-- `results[]` with `id`, `content`, `score`, `workspace`, and `created_at`
+- `results[]` with `id`, `content`, `score`, `workspace`, and `updated_at`
 
 ## Setup
 
