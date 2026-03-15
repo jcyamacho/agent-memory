@@ -3,7 +3,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "../memory.ts";
-import { MemoryService } from "../memory-service.ts";
+import { toNormalizedScore } from "../memory.ts";
+import { MemoryService, RECALL_CANDIDATE_LIMIT_MULTIPLIER } from "../memory-service.ts";
 import { registerRecallTool } from "./recall.ts";
 
 class RecallOnlyRepository implements MemoryRepository {
@@ -20,9 +21,10 @@ class RecallOnlyRepository implements MemoryRepository {
       {
         id: "memory-1",
         content: "Use FTS5 for recall and ranking.",
-        score: 0.9,
+        score: toNormalizedScore(0.9),
         workspace: "/repo-a",
         createdAt: new Date("2026-03-07T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-07T10:00:00.000Z"),
       },
     ];
   }
@@ -72,8 +74,7 @@ describe("registerRecallTool", () => {
 
     expect(repository.searchQuery).toMatchObject({
       terms: ["FTS5", "ranking"],
-      limit: 3,
-      workspace: "/repo-a",
+      limit: 3 * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
     });
     expect(repository.searchQuery?.createdAfter).toBeInstanceOf(Date);
     expect(repository.searchQuery?.createdBefore).toBeInstanceOf(Date);
@@ -84,7 +85,7 @@ describe("registerRecallTool", () => {
           content: "Use FTS5 for recall and ranking.",
           score: 0.9,
           workspace: "/repo-a",
-          created_at: "2026-03-07T10:00:00.000Z",
+          updated_at: "2026-03-07T10:00:00.000Z",
         },
       ],
     });

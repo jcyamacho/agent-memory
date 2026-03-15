@@ -44,7 +44,7 @@ const recallOutputSchema = {
       content: z.string().describe("Saved memory text that matched one or more search terms."),
       score: z.number().describe("Relative relevance score for ranking results. Higher means a stronger match."),
       workspace: z.string().optional().describe("Workspace associated with the memory, if available."),
-      created_at: z.string().describe("ISO 8601 timestamp showing when the memory was created."),
+      updated_at: z.string().describe("ISO 8601 timestamp showing when the memory was last updated."),
     }),
   ),
 };
@@ -74,7 +74,7 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
             content: result.content,
             score: result.score,
             workspace: result.workspace,
-            created_at: result.createdAt.toISOString(),
+            updated_at: result.updatedAt.toISOString(),
           })),
         };
 
