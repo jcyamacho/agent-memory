@@ -37,8 +37,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.11",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "better-sqlite3": "^12.6.2",
+    "hono": "^4.12.8",
     "zod": "^4.3.6"
   }
 }

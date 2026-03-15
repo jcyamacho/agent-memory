@@ -88,6 +88,23 @@ This MCP is useful for context that should survive across turns and sessions:
 - Important decisions and constraints that should not be rediscovered
 - Project-scoped notes that still matter later
 
+## Web UI
+
+Browse, edit, and delete memories in a local web interface:
+
+```bash
+npx -y @jcyamacho/agent-memory --ui
+```
+
+Opens at `http://localhost:6580`. Use `--port` to change:
+
+```bash
+npx -y @jcyamacho/agent-memory --ui --port 9090
+```
+
+The web UI uses the same database as the MCP server. LLM tools remain
+append-only; the web UI is the only way to edit or delete memories.
+
 ## Tools
 
 ### `remember`

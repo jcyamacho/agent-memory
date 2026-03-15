@@ -15,6 +15,13 @@ export class ValidationError extends MemoryError {
   }
 }
 
+export class NotFoundError extends MemoryError {
+  constructor(message: string) {
+    super("NOT_FOUND", message);
+    this.name = "NotFoundError";
+  }
+}
+
 export class PersistenceError extends MemoryError {
   constructor(message: string, options?: ErrorOptions) {
     super("PERSISTENCE_ERROR", message, options);
