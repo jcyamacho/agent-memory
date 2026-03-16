@@ -63,9 +63,10 @@ With a custom database path:
 Optional LLM instructions to reinforce the MCP's built-in guidance:
 
 ```text
-Use `recall` at the start of every conversation. Use `remember` when the user
+Use `recall` at the start of every conversation and again mid-task before
+making design choices or picking conventions. Use `remember` when the user
 corrects your approach, a key decision is established, or you learn project
-context not obvious from the code.
+context not obvious from the code. Always pass workspace.
 ```
 
 ## What It Stores
