@@ -8,7 +8,7 @@ const recallInputSchema = {
     .array(z.string())
     .min(1)
     .describe(
-      "Search terms used to find relevant memories. Pass 2-5 short, distinctive items as separate array entries. Focus on the topic, not the project name -- use workspace for project scoping. Prefer file names, APIs, feature names, or brief phrases. Avoid full sentences.",
+      "Search terms used to find relevant memories. Pass 2-5 short, distinctive items as separate array entries. Be specific: instead of 'preferences' or 'context', name the actual topic -- e.g. 'error handling', 'commit format', 'testing strategy'. Do not repeat the project or workspace name here -- use the workspace parameter for project scoping. Avoid full sentences.",
     ),
   limit: z
     .number()
@@ -54,7 +54,7 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
     "recall",
     {
       description:
-        "Recall previously saved context for the current task. Call this at the start of every conversation and whenever prior preferences, decisions, or project context may be relevant. Pass workspace to bias results toward the active project.",
+        "Search memories for prior decisions, corrections, and context that cannot be derived from code or git history. Call at the start of every conversation and again mid-task when you are about to make a design choice, pick a convention, or handle an edge case that the user may have guided before. Always pass workspace.",
       inputSchema: recallInputSchema,
       outputSchema: recallOutputSchema,
     },
