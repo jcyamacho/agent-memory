@@ -18,6 +18,9 @@ export const toMcpError = (error: unknown): McpError => {
   return new McpError(ErrorCode.InternalError, message);
 };
 
+export const escapeXml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 export const parseOptionalDate = (value: string | undefined, fieldName: string): Date | undefined => {
   if (!value) {
     return undefined;

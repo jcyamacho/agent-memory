@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
+import type { MemorySearchResult } from "../memory.ts";
 import { MAX_LIMIT, type MemoryService } from "../memory-service.ts";
-import { parseOptionalDate, toMcpError } from "./shared.ts";
+import { escapeXml, parseOptionalDate, toMcpError } from "./shared.ts";
 
 const recallInputSchema = {
   terms: z
@@ -37,16 +38,10 @@ const recallInputSchema = {
     ),
 };
 
-const recallOutputSchema = {
-  results: z.array(
-    z.object({
-      id: z.string().describe("Stable identifier for the remembered item."),
-      content: z.string().describe("Saved memory text that matched one or more search terms."),
-      score: z.number().describe("Relative relevance score for ranking results. Higher means a stronger match."),
-      workspace: z.string().optional().describe("Workspace associated with the memory, if available."),
-      updated_at: z.string().describe("ISO 8601 timestamp showing when the memory was last updated."),
-    }),
-  ),
+const toMemoryXml = (r: MemorySearchResult): string => {
+  const workspace = r.workspace ? ` workspace="${escapeXml(r.workspace)}"` : "";
+  const content = escapeXml(r.content);
+  return `<memory id="${r.id}" score="${r.score}"${workspace} updated_at="${r.updatedAt.toISOString()}">\n${content}\n</memory>`;
 };
 
 export const registerRecallTool = (server: McpServer, memoryService: MemoryService): void => {
@@ -56,7 +51,6 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
       description:
         "Search memories for prior decisions, corrections, and context that cannot be derived from code or git history. Call at the start of every conversation and again mid-task when you are about to make a design choice, pick a convention, or handle an edge case that the user may have guided before. Always pass workspace.",
       inputSchema: recallInputSchema,
-      outputSchema: recallOutputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {
       try {
@@ -68,27 +62,13 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
           updatedBefore: parseOptionalDate(updated_before, "updated_before"),
         });
 
-        const structuredContent = {
-          results: results.map((result) => ({
-            id: result.id,
-            content: result.content,
-            score: result.score,
-            workspace: result.workspace,
-            updated_at: result.updatedAt.toISOString(),
-          })),
-        };
-
-        const matchCount = structuredContent.results.length;
-        const summary = matchCount === 1 ? "Found 1 matching memory." : `Found ${matchCount} matching memories.`;
+        const text =
+          results.length === 0
+            ? "No matching memories found."
+            : `<memories>\n${results.map(toMemoryXml).join("\n")}\n</memories>`;
 
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: summary,
-            },
-          ],
-          structuredContent,
+          content: [{ type: "text" as const, text }],
         };
       } catch (error) {
         throw toMcpError(error);

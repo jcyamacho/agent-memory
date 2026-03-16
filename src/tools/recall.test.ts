@@ -78,23 +78,14 @@ describe("registerRecallTool", () => {
     });
     expect(repository.searchQuery?.updatedAfter).toBeInstanceOf(Date);
     expect(repository.searchQuery?.updatedBefore).toBeInstanceOf(Date);
-    expect(response.structuredContent).toEqual({
-      results: [
-        {
-          id: "memory-1",
-          content: "Use FTS5 for recall and ranking.",
-          score: 0.9,
-          workspace: "/repo-a",
-          updated_at: "2026-03-07T10:00:00.000Z",
-        },
-      ],
-    });
-    expect(response.content).toEqual([
-      {
-        type: "text",
-        text: "Found 1 matching memory.",
-      },
-    ]);
+    const text = (response.content as { type: string; text: string }[])[0]?.text;
+    expect(text).toContain("<memories>");
+    expect(text).toContain('id="memory-1"');
+    expect(text).toContain('score="0.9"');
+    expect(text).toContain('workspace="/repo-a"');
+    expect(text).toContain('updated_at="2026-03-07T10:00:00.000Z"');
+    expect(text).toContain("Use FTS5 for recall and ranking.");
+    expect(text).toContain("</memories>");
   });
 
   it("returns an MCP validation error for an invalid date", async () => {

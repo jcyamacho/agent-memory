@@ -63,14 +63,7 @@ describe("registerRememberTool", () => {
       content: "Keep migrations isolated from repository logic.",
       workspace: "/repo-a",
     });
-    expect(response.structuredContent).toEqual({
-      id: expect.any(String),
-    });
-    expect(response.content).toEqual([
-      {
-        type: "text",
-        text: "Saved memory.",
-      },
-    ]);
+    const text = (response.content as { type: string; text: string }[])[0]?.text;
+    expect(text).toMatch(/^<memory id="[^"]+" \/>$/);
   });
 });

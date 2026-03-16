@@ -17,10 +17,6 @@ const rememberInputSchema = {
     ),
 };
 
-const rememberOutputSchema = {
-  id: z.string().describe("Stable identifier for the saved memory."),
-};
-
 export const registerRememberTool = (server: McpServer, memoryService: MemoryService): void => {
   server.registerTool(
     "remember",
@@ -28,7 +24,6 @@ export const registerRememberTool = (server: McpServer, memoryService: MemorySer
       description:
         "Save durable context for later recall. Use this when the user corrects your approach, states a preference, a key decision or convention is established, or you learn project context not obvious from the code. Store one concise fact per memory. Do not store secrets, ephemeral task state, or information already in the codebase.",
       inputSchema: rememberInputSchema,
-      outputSchema: rememberOutputSchema,
     },
     async ({ content, workspace }) => {
       try {
@@ -37,18 +32,8 @@ export const registerRememberTool = (server: McpServer, memoryService: MemorySer
           workspace,
         });
 
-        const structuredContent = {
-          id: memory.id,
-        };
-
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Saved memory.",
-            },
-          ],
-          structuredContent,
+          content: [{ type: "text" as const, text: `<memory id="${memory.id}" />` }],
         };
       } catch (error) {
         throw toMcpError(error);
