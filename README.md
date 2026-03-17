@@ -134,15 +134,18 @@ memories:
 
 1. **Text relevance** is the primary signal -- memories whose content best
    matches your search terms rank highest.
-2. **Workspace match** is a strong secondary signal. When you pass `workspace`,
-   memories saved with the same workspace rank above unrelated ones.
+2. **Workspace match** is a strong secondary signal. When you pass
+   `workspace`, exact matches rank highest, sibling repositories get a small
+   boost, and unrelated workspaces rank lowest.
 3. **Global memories** (saved without a workspace) are treated as relevant
-   everywhere. They rank between workspace-matching and non-matching memories.
+   everywhere. When you pass `workspace`, they rank below exact workspace
+   matches and above sibling or unrelated repositories.
 4. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
    ones when other signals are equal.
 
-For best results, always pass `workspace` when calling `recall`. Save memories
-without a workspace only when they apply across all projects.
+If you omit `workspace`, recall falls back to text relevance and recency only.
+For best results, pass `workspace` whenever you have one. Save memories without
+a workspace only when they apply across all projects.
 
 ## Database location
 

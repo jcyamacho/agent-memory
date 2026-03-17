@@ -19,12 +19,11 @@ const WORKSPACE_MATCH_WEIGHT = 4;
 const RECENCY_WEIGHT = 1;
 const MAX_COMPOSITE_SCORE = RETRIEVAL_SCORE_WEIGHT + WORKSPACE_MATCH_WEIGHT + RECENCY_WEIGHT;
 
-export class MemoryService {
-  private readonly repository: MemoryRepository;
+const GLOBAL_WORKSPACE_SCORE = 0.5;
+const SIBLING_WORKSPACE_SCORE = 0.25;
 
-  constructor(repository: MemoryRepository) {
-    this.repository = repository;
-  }
+export class MemoryService {
+  constructor(private readonly repository: MemoryRepository) {}
 
   async save(input: SaveMemoryInput): Promise<MemoryRecord> {
     const content = input.content.trim();
@@ -67,7 +66,7 @@ export class MemoryService {
   }
 }
 
-const normalizeLimit = (value: number | undefined): number => {
+function normalizeLimit(value: number | undefined): number {
   if (value === undefined) {
     return DEFAULT_LIMIT;
   }
@@ -77,37 +76,59 @@ const normalizeLimit = (value: number | undefined): number => {
   }
 
   return value;
-};
+}
 
-const normalizeOptionalString = (value: string | undefined): string | undefined => {
+function normalizeOptionalString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
-};
+}
 
-const normalizeTerms = (terms: string[]): string[] => {
+function normalizeTerms(terms: string[]): string[] {
   const normalizedTerms = terms.map((term) => term.trim()).filter(Boolean);
   return [...new Set(normalizedTerms)];
-};
+}
 
-const GLOBAL_WORKSPACE_SCORE = 0.5;
+function normalizeWorkspacePath(value: string): string {
+  return value.trim().replaceAll("\\", "/").replace(/\/+/g, "/").split("/").filter(Boolean).join("/");
+}
 
-const computeWorkspaceScore = (memoryWs: string | undefined, queryWs: string | undefined): number => {
-  if (!memoryWs) return GLOBAL_WORKSPACE_SCORE;
-  if (queryWs && memoryWs === queryWs) return 1;
-  return 0;
-};
+function computeWorkspaceScore(memoryWs: string | undefined, queryWs: string | undefined): number {
+  if (!queryWs) {
+    return 0;
+  }
 
-const rerankSearchResults = (results: MemorySearchResult[], workspace: string | undefined): MemorySearchResult[] => {
+  if (!memoryWs) {
+    return GLOBAL_WORKSPACE_SCORE;
+  }
+
+  const normalizedMemoryWs = normalizeWorkspacePath(memoryWs);
+  if (normalizedMemoryWs === queryWs) {
+    return 1;
+  }
+
+  const queryLastSlashIndex = queryWs.lastIndexOf("/");
+  const memoryLastSlashIndex = normalizedMemoryWs.lastIndexOf("/");
+  if (queryLastSlashIndex <= 0 || memoryLastSlashIndex <= 0) {
+    return 0;
+  }
+
+  const queryParent = queryWs.slice(0, queryLastSlashIndex);
+  const memoryParent = normalizedMemoryWs.slice(0, memoryLastSlashIndex);
+  return memoryParent === queryParent ? SIBLING_WORKSPACE_SCORE : 0;
+}
+
+function rerankSearchResults(results: MemorySearchResult[], workspace: string | undefined): MemorySearchResult[] {
   if (results.length <= 1) {
     return results;
   }
 
+  const normalizedQueryWs = workspace ? normalizeWorkspacePath(workspace) : undefined;
   const updatedAtTimes = results.map((result) => result.updatedAt.getTime());
   const minUpdatedAt = Math.min(...updatedAtTimes);
   const maxUpdatedAt = Math.max(...updatedAtTimes);
 
-  return [...results].map((result) => {
-    const workspaceScore = computeWorkspaceScore(result.workspace, workspace);
+  return results.map((result) => {
+    const workspaceScore = computeWorkspaceScore(result.workspace, normalizedQueryWs);
     const recencyScore =
       maxUpdatedAt === minUpdatedAt ? 0 : (result.updatedAt.getTime() - minUpdatedAt) / (maxUpdatedAt - minUpdatedAt);
     const combinedScore =
@@ -121,4 +142,4 @@ const rerankSearchResults = (results: MemorySearchResult[], workspace: string | 
       score: toNormalizedScore(combinedScore),
     };
   });
-};
+}
