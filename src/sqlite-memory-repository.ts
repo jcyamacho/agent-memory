@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { NotFoundError, PersistenceError } from "./errors.ts";
 import type {
-  MemoryAdmin,
-  MemoryListOptions,
+  CreateMemoryInput,
+  DeleteMemoryInput,
+  ListMemoriesInput,
+  MemoryApi,
   MemoryPage,
   MemoryRecord,
-  MemoryRepository,
-  MemorySearchQuery,
   MemorySearchResult,
+  SearchMemoryInput,
+  UpdateMemoryInput,
 } from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 import type { SqliteDatabaseLike, SqlStatement } from "./sqlite-db.ts";
@@ -23,11 +26,14 @@ interface ScoredMemoryRow extends MemoryRow {
   score: number;
 }
 
-export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
+const DEFAULT_SEARCH_LIMIT = 15;
+const DEFAULT_LIST_LIMIT = 15;
+
+export class SqliteMemoryRepository implements MemoryApi {
   private readonly database: SqliteDatabaseLike;
   private readonly insertStatement: SqlStatement;
 
-  private readonly findByIdStatement: SqlStatement;
+  private readonly getStatement: SqlStatement;
   private readonly updateStatement: SqlStatement;
   private readonly deleteStatement: SqlStatement;
   private readonly listWorkspacesStatement: SqlStatement;
@@ -49,7 +55,7 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
         ?
       )
     `);
-    this.findByIdStatement = database.prepare(
+    this.getStatement = database.prepare(
       "SELECT id, content, workspace, created_at, updated_at FROM memories WHERE id = ?",
     );
     this.updateStatement = database.prepare("UPDATE memories SET content = ?, updated_at = ? WHERE id = ?");
@@ -59,8 +65,16 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
     );
   }
 
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
+  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
     try {
+      const now = new Date();
+      const memory: MemoryRecord = {
+        id: randomUUID(),
+        content: input.content,
+        workspace: input.workspace,
+        createdAt: now,
+        updatedAt: now,
+      };
       this.insertStatement.run(
         memory.id,
         memory.content,
@@ -74,9 +88,10 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
     }
   }
 
-  async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
+  async search(query: SearchMemoryInput): Promise<MemorySearchResult[]> {
     try {
       const whereParams: unknown[] = [toFtsQuery(query.terms)];
+      const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
 
       const whereClauses = ["memories_fts MATCH ?"];
 
@@ -90,7 +105,7 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
         whereParams.push(query.updatedBefore.getTime());
       }
 
-      const params = [...whereParams, query.limit];
+      const params = [...whereParams, limit];
 
       const statement = this.database.prepare(`
         SELECT
@@ -121,9 +136,9 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
       });
     }
   }
-  async findById(id: string): Promise<MemoryRecord | undefined> {
+  async get(id: string): Promise<MemoryRecord | undefined> {
     try {
-      const rows = this.findByIdStatement.all(id) as MemoryRow[];
+      const rows = this.getStatement.all(id) as MemoryRow[];
       const row = rows[0];
       return row ? toMemoryRecord(row) : undefined;
     } catch (error) {
@@ -131,10 +146,12 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
     }
   }
 
-  async findAll(options: MemoryListOptions): Promise<MemoryPage> {
+  async list(options: ListMemoriesInput): Promise<MemoryPage> {
     try {
       const whereClauses: string[] = [];
       const params: unknown[] = [];
+      const offset = options.offset ?? 0;
+      const limit = options.limit ?? DEFAULT_LIST_LIMIT;
 
       if (options.workspace) {
         whereClauses.push("workspace = ?");
@@ -144,8 +161,8 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
       }
 
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-      const limit = options.limit + 1;
-      params.push(limit, options.offset);
+      const queryLimit = limit + 1;
+      params.push(queryLimit, offset);
 
       const statement = this.database.prepare(`
         SELECT id, content, workspace, created_at, updated_at
@@ -156,8 +173,8 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
       `);
 
       const rows = statement.all(...params) as MemoryRow[];
-      const hasMore = rows.length > options.limit;
-      const items = (hasMore ? rows.slice(0, options.limit) : rows).map(toMemoryRecord);
+      const hasMore = rows.length > limit;
+      const items = (hasMore ? rows.slice(0, limit) : rows).map(toMemoryRecord);
 
       return { items, hasMore };
     } catch (error) {
@@ -165,35 +182,35 @@ export class SqliteMemoryRepository implements MemoryRepository, MemoryAdmin {
     }
   }
 
-  async update(id: string, content: string): Promise<MemoryRecord> {
+  async update(input: UpdateMemoryInput): Promise<MemoryRecord> {
     let result: { changes: number } | undefined;
     try {
       const now = Date.now();
-      result = this.updateStatement.run(content, now, id) as { changes: number };
+      result = this.updateStatement.run(input.content, now, input.id) as { changes: number };
     } catch (error) {
       throw new PersistenceError("Failed to update memory.", { cause: error });
     }
     if (result.changes === 0) {
-      throw new NotFoundError(`Memory not found: ${id}`);
+      throw new NotFoundError(`Memory not found: ${input.id}`);
     }
 
-    const memory = await this.findById(id);
+    const memory = await this.get(input.id);
     if (!memory) {
-      throw new NotFoundError(`Memory not found after update: ${id}`);
+      throw new NotFoundError(`Memory not found after update: ${input.id}`);
     }
 
     return memory;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(input: DeleteMemoryInput): Promise<void> {
     let result: { changes: number } | undefined;
     try {
-      result = this.deleteStatement.run(id) as { changes: number };
+      result = this.deleteStatement.run(input.id) as { changes: number };
     } catch (error) {
       throw new PersistenceError("Failed to delete memory.", { cause: error });
     }
     if (result.changes === 0) {
-      throw new NotFoundError(`Memory not found: ${id}`);
+      throw new NotFoundError(`Memory not found: ${input.id}`);
     }
   }
 
@@ -217,10 +234,10 @@ const toMemoryRecord = (row: MemoryRow): MemoryRecord => ({
 
 const toFtsQuery = (terms: string[]): string => terms.map(toFtsTerm).join(" OR ");
 
-const toFtsTerm = (term: string): string => {
+function toFtsTerm(term: string): string {
   const escaped = term.replaceAll('"', '""');
   if (term.includes(" ")) {
     return `"${escaped}"`;
   }
   return `"${escaped}"*`;
-};
+}

@@ -2,49 +2,34 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { NotFoundError } from "../errors.ts";
-import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "../memory.ts";
-import { MemoryService } from "../memory-service.ts";
+import { NotFoundError, ValidationError } from "../../errors.ts";
+import type { MemoryRecord } from "../../memory.ts";
 import { registerReviseTool } from "./revise.ts";
 
-class ReviseOnlyRepository implements MemoryRepository {
-  public updatedId: string | undefined;
-  public updatedContent: string | undefined;
-
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
-    return memory;
-  }
-
-  async search(_query: MemorySearchQuery): Promise<MemorySearchResult[]> {
-    return [];
-  }
-
-  async update(id: string, content: string): Promise<MemoryRecord> {
-    this.updatedId = id;
-    this.updatedContent = content;
-    const now = new Date("2026-03-19T12:00:00.000Z");
-    return { id, content, createdAt: now, updatedAt: now };
-  }
-
-  async delete(_id: string): Promise<void> {
-    throw new Error("Not implemented");
-  }
-}
-
 describe("registerReviseTool", () => {
-  let repository: ReviseOnlyRepository;
+  let updatedId: string | undefined;
+  let updatedContent: string | undefined;
+  let reviseImpl: (id: string, content: string) => Promise<MemoryRecord>;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    repository = new ReviseOnlyRepository();
-    const memoryService = new MemoryService(repository);
+    updatedId = undefined;
+    updatedContent = undefined;
+    reviseImpl = async (id, content) => {
+      updatedId = id;
+      updatedContent = content;
+      const now = new Date("2026-03-19T12:00:00.000Z");
+      return { id, content, createdAt: now, updatedAt: now };
+    };
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
     });
 
-    registerReviseTool(server, memoryService);
+    registerReviseTool(server, {
+      update: async ({ id, content }) => reviseImpl(id, content),
+    });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({
@@ -70,13 +55,17 @@ describe("registerReviseTool", () => {
       },
     });
 
-    expect(repository.updatedId).toBe("memory-1");
-    expect(repository.updatedContent).toBe("Updated fact.");
+    expect(updatedId).toBe("memory-1");
+    expect(updatedContent).toBe("  Updated fact.  ");
     const text = (response.content as { type: string; text: string }[])[0]?.text;
     expect(text).toMatch(/^<memory id="memory-1" updated_at="[^"]+" \/>$/);
   });
 
   it("returns an MCP error for empty content", async () => {
+    reviseImpl = async () => {
+      throw new ValidationError("Memory content is required.");
+    };
+
     const response = await client.callTool({
       name: "revise",
       arguments: {
@@ -95,7 +84,7 @@ describe("registerReviseTool", () => {
   });
 
   it("returns an MCP error when memory is not found", async () => {
-    repository.update = async () => {
+    reviseImpl = async () => {
       throw new NotFoundError("Memory not found.");
     };
 

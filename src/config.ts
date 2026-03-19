@@ -12,10 +12,10 @@ export interface AppConfig {
   uiPort: number;
 }
 
-export const resolveConfig = (
+export function resolveConfig(
   environment: NodeJS.ProcessEnv = process.env,
   argv: string[] = process.argv.slice(2),
-): AppConfig => {
+): AppConfig {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -30,4 +30,4 @@ export const resolveConfig = (
     uiMode: Boolean(values.ui),
     uiPort: Number(values.port) || DEFAULT_UI_PORT,
   };
-};
+}

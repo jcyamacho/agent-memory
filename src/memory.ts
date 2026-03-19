@@ -6,13 +6,6 @@ export interface MemoryRecord {
   updatedAt: Date;
 }
 
-export interface MemorySearchQuery {
-  terms: string[];
-  limit: number;
-  updatedAfter?: Date;
-  updatedBefore?: Date;
-}
-
 declare const NormalizedScoreBrand: unique symbol;
 export type NormalizedScore = number & { readonly [NormalizedScoreBrand]: true };
 export const toNormalizedScore = (value: number): NormalizedScore => value as NormalizedScore;
@@ -26,42 +19,29 @@ export interface MemorySearchResult {
   updatedAt: Date;
 }
 
-export interface MemoryListOptions {
-  workspace?: string;
-  workspaceIsNull?: boolean;
-  offset: number;
-  limit: number;
-}
-
 export interface MemoryPage {
   items: MemoryRecord[];
   hasMore: boolean;
 }
 
-export interface MemoryRepository {
-  save(memory: MemoryRecord): Promise<MemoryRecord>;
-  search(query: MemorySearchQuery): Promise<MemorySearchResult[]>;
-  update(id: string, content: string): Promise<MemoryRecord>;
-  delete(id: string): Promise<void>;
+export interface ListMemoriesInput {
+  workspace?: string;
+  workspaceIsNull?: boolean;
+  offset?: number;
+  limit?: number;
 }
 
-export interface MemoryAdmin {
-  findById(id: string): Promise<MemoryRecord | undefined>;
-  findAll(options: MemoryListOptions): Promise<MemoryPage>;
-  listWorkspaces(): Promise<string[]>;
-}
-
-export interface SaveMemoryInput {
+export interface CreateMemoryInput {
   content: string;
   workspace?: string;
 }
 
-export interface ReviseMemoryInput {
+export interface UpdateMemoryInput {
   id: string;
   content: string;
 }
 
-export interface ForgetMemoryInput {
+export interface DeleteMemoryInput {
   id: string;
 }
 
@@ -71,4 +51,14 @@ export interface SearchMemoryInput {
   workspace?: string;
   updatedAfter?: Date;
   updatedBefore?: Date;
+}
+
+export interface MemoryApi {
+  create(input: CreateMemoryInput): Promise<MemoryRecord>;
+  search(input: SearchMemoryInput): Promise<MemorySearchResult[]>;
+  update(input: UpdateMemoryInput): Promise<MemoryRecord>;
+  delete(input: DeleteMemoryInput): Promise<void>;
+  get(id: string): Promise<MemoryRecord | undefined>;
+  list(input: ListMemoriesInput): Promise<MemoryPage>;
+  listWorkspaces(): Promise<string[]>;
 }

@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MemoryService } from "./memory-service.ts";
+import type { MemoryApi } from "../memory.ts";
 import { registerForgetTool } from "./tools/forget.ts";
 import { registerRecallTool } from "./tools/recall.ts";
 import { registerRememberTool } from "./tools/remember.ts";
@@ -16,7 +16,7 @@ const SERVER_INSTRUCTIONS = [
   "Omit workspace only when saving a memory that applies across all projects.",
 ].join(" ");
 
-export const createMcpServer = (memoryService: MemoryService, version: string): McpServer => {
+export function createMcpServer(memory: MemoryApi, version: string): McpServer {
   const server = new McpServer(
     {
       name: "agent-memory",
@@ -27,10 +27,10 @@ export const createMcpServer = (memoryService: MemoryService, version: string): 
     },
   );
 
-  registerRememberTool(server, memoryService);
-  registerRecallTool(server, memoryService);
-  registerReviseTool(server, memoryService);
-  registerForgetTool(server, memoryService);
+  registerRememberTool(server, memory);
+  registerRecallTool(server, memory);
+  registerReviseTool(server, memory);
+  registerForgetTool(server, memory);
 
   return server;
-};
+}

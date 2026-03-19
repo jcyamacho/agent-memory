@@ -2,45 +2,32 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MemoryRecord, MemoryRepository, MemorySearchQuery } from "../memory.ts";
-import { MemoryService } from "../memory-service.ts";
+import type { MemoryRecord } from "../../memory.ts";
 import { registerRememberTool } from "./remember.ts";
 
-class RememberOnlyRepository implements MemoryRepository {
-  public savedMemory: MemoryRecord | undefined;
-
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
-    this.savedMemory = memory;
-    return memory;
-  }
-
-  async search(_query: MemorySearchQuery) {
-    return [];
-  }
-
-  async update(_id: string, _content: string): Promise<MemoryRecord> {
-    throw new Error("Not implemented");
-  }
-
-  async delete(_id: string): Promise<void> {
-    throw new Error("Not implemented");
-  }
-}
-
 describe("registerRememberTool", () => {
-  let repository: RememberOnlyRepository;
+  let savedMemory: MemoryRecord | undefined;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    repository = new RememberOnlyRepository();
-    const memoryService = new MemoryService(repository);
+    savedMemory = undefined;
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
     });
 
-    registerRememberTool(server, memoryService);
+    registerRememberTool(server, {
+      create: async (memory) => {
+        savedMemory = {
+          id: "memory-1",
+          createdAt: new Date("2026-03-19T12:00:00.000Z"),
+          updatedAt: new Date("2026-03-19T12:00:00.000Z"),
+          ...memory,
+        };
+        return savedMemory;
+      },
+    });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({
@@ -57,7 +44,7 @@ describe("registerRememberTool", () => {
     await server.close();
   });
 
-  it("saves memory and returns the structured MCP response", async () => {
+  it("creates memory and returns the structured MCP response", async () => {
     const response = await client.callTool({
       name: "remember",
       arguments: {
@@ -66,12 +53,12 @@ describe("registerRememberTool", () => {
       },
     });
 
-    expect(repository.savedMemory).toBeDefined();
-    expect(repository.savedMemory).toMatchObject({
-      content: "Keep migrations isolated from repository logic.",
-      workspace: "/repo-a",
+    expect(savedMemory).toBeDefined();
+    expect(savedMemory).toMatchObject({
+      content: "  Keep migrations isolated from repository logic.  ",
+      workspace: "  /repo-a  ",
     });
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toMatch(/^<memory id="[^"]+" \/>$/);
+    expect(text).toBe('<memory id="memory-1" />');
   });
 });

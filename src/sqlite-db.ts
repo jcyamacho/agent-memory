@@ -52,7 +52,7 @@ export interface SqliteDatabaseLike {
 
 export type SqliteDatabase = Database.Database;
 
-export const openMemoryDatabase = (databasePath: string): SqliteDatabase => {
+export function openMemoryDatabase(databasePath: string): SqliteDatabase {
   try {
     mkdirSync(dirname(databasePath), { recursive: true });
 
@@ -65,9 +65,9 @@ export const openMemoryDatabase = (databasePath: string): SqliteDatabase => {
       cause: error,
     });
   }
-};
+}
 
-export const initializeMemoryDatabase = (database: SqliteDatabaseLike): void => {
+export function initializeMemoryDatabase(database: SqliteDatabaseLike): void {
   if (database.pragma) {
     database.pragma("journal_mode = WAL");
     database.pragma("synchronous = NORMAL");
@@ -81,4 +81,4 @@ export const initializeMemoryDatabase = (database: SqliteDatabaseLike): void => 
   }
 
   database.exec(MEMORY_SCHEMA);
-};
+}

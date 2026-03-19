@@ -1,7 +1,7 @@
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { MemoryError } from "../errors.ts";
+import { MemoryError } from "../../errors.ts";
 
-export const toMcpError = (error: unknown): McpError => {
+export function toMcpError(error: unknown): McpError {
   if (error instanceof McpError) {
     return error;
   }
@@ -16,12 +16,12 @@ export const toMcpError = (error: unknown): McpError => {
 
   const message = error instanceof Error ? error.message : "Unknown server error.";
   return new McpError(ErrorCode.InternalError, message);
-};
+}
 
 export const escapeXml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export const parseOptionalDate = (value: string | undefined, fieldName: string): Date | undefined => {
+export function parseOptionalDate(value: string | undefined, fieldName: string): Date | undefined {
   if (!value) {
     return undefined;
   }
@@ -33,4 +33,4 @@ export const parseOptionalDate = (value: string | undefined, fieldName: string):
   }
 
   return date;
-};
+}

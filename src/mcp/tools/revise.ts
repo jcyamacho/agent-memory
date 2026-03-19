@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import type { MemoryService } from "../memory-service.ts";
+import type { MemoryApi } from "../../memory.ts";
 import { toMcpError } from "./shared.ts";
 
 const reviseInputSchema = {
@@ -12,7 +12,7 @@ const reviseInputSchema = {
     ),
 };
 
-export const registerReviseTool = (server: McpServer, memoryService: MemoryService): void => {
+export function registerReviseTool(server: McpServer, memory: Pick<MemoryApi, "update">): void {
   server.registerTool(
     "revise",
     {
@@ -22,13 +22,13 @@ export const registerReviseTool = (server: McpServer, memoryService: MemoryServi
     },
     async ({ id, content }) => {
       try {
-        const memory = await memoryService.revise({ id, content });
+        const revisedMemory = await memory.update({ id, content });
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `<memory id="${memory.id}" updated_at="${memory.updatedAt.toISOString()}" />`,
+              text: `<memory id="${revisedMemory.id}" updated_at="${revisedMemory.updatedAt.toISOString()}" />`,
             },
           ],
         };
@@ -37,4 +37,4 @@ export const registerReviseTool = (server: McpServer, memoryService: MemoryServi
       }
     },
   );
-};
+}

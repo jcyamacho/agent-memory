@@ -2,45 +2,28 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { NotFoundError } from "../errors.ts";
-import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "../memory.ts";
-import { MemoryService } from "../memory-service.ts";
+import { NotFoundError, ValidationError } from "../../errors.ts";
 import { registerForgetTool } from "./forget.ts";
 
-class ForgetOnlyRepository implements MemoryRepository {
-  public deletedId: string | undefined;
-
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
-    return memory;
-  }
-
-  async search(_query: MemorySearchQuery): Promise<MemorySearchResult[]> {
-    return [];
-  }
-
-  async update(_id: string, _content: string): Promise<MemoryRecord> {
-    throw new Error("Not implemented");
-  }
-
-  async delete(id: string): Promise<void> {
-    this.deletedId = id;
-  }
-}
-
 describe("registerForgetTool", () => {
-  let repository: ForgetOnlyRepository;
+  let deletedId: string | undefined;
+  let forgetImpl: (id: string) => Promise<void>;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    repository = new ForgetOnlyRepository();
-    const memoryService = new MemoryService(repository);
+    deletedId = undefined;
+    forgetImpl = async (id) => {
+      deletedId = id;
+    };
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
     });
 
-    registerForgetTool(server, memoryService);
+    registerForgetTool(server, {
+      delete: async ({ id }) => forgetImpl(id),
+    });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     client = new Client({
@@ -63,12 +46,16 @@ describe("registerForgetTool", () => {
       arguments: { id: "memory-1" },
     });
 
-    expect(repository.deletedId).toBe("memory-1");
+    expect(deletedId).toBe("memory-1");
     const text = (response.content as { type: string; text: string }[])[0]?.text;
     expect(text).toBe('<memory id="memory-1" deleted="true" />');
   });
 
   it("returns an MCP error for empty id", async () => {
+    forgetImpl = async () => {
+      throw new ValidationError("Memory id is required.");
+    };
+
     const response = await client.callTool({
       name: "forget",
       arguments: { id: "   " },
@@ -84,7 +71,7 @@ describe("registerForgetTool", () => {
   });
 
   it("returns an MCP error when memory is not found", async () => {
-    repository.delete = async () => {
+    forgetImpl = async () => {
       throw new NotFoundError("Memory not found.");
     };
 

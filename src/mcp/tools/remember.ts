@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import type { MemoryService } from "../memory-service.ts";
+import type { MemoryApi } from "../../memory.ts";
 import { toMcpError } from "./shared.ts";
 
 const rememberInputSchema = {
@@ -17,7 +17,7 @@ const rememberInputSchema = {
     ),
 };
 
-export const registerRememberTool = (server: McpServer, memoryService: MemoryService): void => {
+export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, "create">): void {
   server.registerTool(
     "remember",
     {
@@ -27,17 +27,17 @@ export const registerRememberTool = (server: McpServer, memoryService: MemorySer
     },
     async ({ content, workspace }) => {
       try {
-        const memory = await memoryService.save({
+        const savedMemory = await memory.create({
           content,
           workspace,
         });
 
         return {
-          content: [{ type: "text" as const, text: `<memory id="${memory.id}" />` }],
+          content: [{ type: "text" as const, text: `<memory id="${savedMemory.id}" />` }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
     },
   );
-};
+}

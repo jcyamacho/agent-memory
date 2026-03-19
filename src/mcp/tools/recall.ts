@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import type { MemorySearchResult } from "../memory.ts";
-import { MAX_LIMIT, type MemoryService } from "../memory-service.ts";
+import type { MemoryApi, MemorySearchResult } from "../../memory.ts";
+import { MAX_RECALL_LIMIT } from "../../memory-service.ts";
 import { escapeXml, parseOptionalDate, toMcpError } from "./shared.ts";
 
 const recallInputSchema = {
@@ -15,7 +15,7 @@ const recallInputSchema = {
     .number()
     .int()
     .min(1)
-    .max(MAX_LIMIT)
+    .max(MAX_RECALL_LIMIT)
     .optional()
     .describe("Maximum number of matches to return. Keep this small when you only need the strongest hits."),
   workspace: z
@@ -38,13 +38,13 @@ const recallInputSchema = {
     ),
 };
 
-const toMemoryXml = (r: MemorySearchResult): string => {
+function toMemoryXml(r: MemorySearchResult): string {
   const workspace = r.workspace ? ` workspace="${escapeXml(r.workspace)}"` : "";
   const content = escapeXml(r.content);
   return `<memory id="${r.id}" score="${r.score}"${workspace} updated_at="${r.updatedAt.toISOString()}">\n${content}\n</memory>`;
-};
+}
 
-export const registerRecallTool = (server: McpServer, memoryService: MemoryService): void => {
+export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "search">): void {
   server.registerTool(
     "recall",
     {
@@ -54,7 +54,7 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {
       try {
-        const results = await memoryService.search({
+        const results = await memory.search({
           terms,
           limit,
           workspace,
@@ -75,4 +75,4 @@ export const registerRecallTool = (server: McpServer, memoryService: MemoryServi
       }
     },
   );
-};
+}

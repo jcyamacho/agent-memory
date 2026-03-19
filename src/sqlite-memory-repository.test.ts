@@ -4,14 +4,27 @@ import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { CreateMemoryInput, MemoryRecord } from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 import { initializeMemoryDatabase, type SqliteDatabaseLike } from "./sqlite-db.ts";
-import { SqliteMemoryRepository } from "./sqlite-repository.ts";
+import { SqliteMemoryRepository } from "./sqlite-memory-repository.ts";
 
 describe("SqliteMemoryRepository", () => {
   let directory: string;
   let database: SqliteDatabaseLike;
   let repository: SqliteMemoryRepository;
+
+  async function createMemory(input: CreateMemoryInput | MemoryRecord): Promise<MemoryRecord> {
+    if ("id" in input) {
+      database
+        .prepare("INSERT INTO memories (id, content, workspace, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+        .run(input.id, input.content, input.workspace ?? null, input.createdAt.getTime(), input.updatedAt.getTime());
+
+      return input;
+    }
+
+    return repository.create(input);
+  }
 
   beforeEach(() => {
     directory = mkdtempSync(join(tmpdir(), "agent-memory-bun-test-"));
@@ -27,10 +40,23 @@ describe("SqliteMemoryRepository", () => {
     await rm(directory, { force: true, recursive: true });
   });
 
-  it("bootstraps schema and can save and search indexed memories", async () => {
+  it("creates using the canonical api input and returns a stored record", async () => {
+    const result = await repository.create({
+      content: "Use SQLite WAL mode when multiple MCP clients share the same file.",
+      workspace: "/repo-a",
+    });
+
+    expect(result.id.length).toBeGreaterThan(0);
+    expect(result.workspace).toBe("/repo-a");
+    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.updatedAt).toBeInstanceOf(Date);
+    expect(result.createdAt.getTime()).toBe(result.updatedAt.getTime());
+  });
+
+  it("bootstraps schema and can create and search indexed memories", async () => {
     const createdAt = new Date("2026-03-07T10:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-1",
       content: "Use SQLite WAL mode when multiple MCP clients share the same file.",
       workspace: "/repo-a",
@@ -63,7 +89,7 @@ describe("SqliteMemoryRepository", () => {
   it("supports hyphenated search queries", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-2",
       content: "verification-memory-entry-2026-03-08",
       createdAt,
@@ -82,7 +108,7 @@ describe("SqliteMemoryRepository", () => {
   it("supports phrase terms without splitting them internally", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-3",
       content: "Prefer shared sqlite decisions for cross-client coordination.",
       createdAt,
@@ -101,7 +127,7 @@ describe("SqliteMemoryRepository", () => {
   it("returns partial matches with OR semantics", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-4",
       content: "Always use WAL mode for concurrent reads in SQLite.",
       createdAt,
@@ -120,7 +146,7 @@ describe("SqliteMemoryRepository", () => {
   it("matches prefix for single-word terms", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-5",
       content: "Use configuration files for environment-specific settings.",
       createdAt,
@@ -139,7 +165,7 @@ describe("SqliteMemoryRepository", () => {
   it("matches stemmed word forms via porter tokenizer", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "memory-6",
       content: "Running database migrations requires careful planning.",
       createdAt,
@@ -159,8 +185,8 @@ describe("SqliteMemoryRepository", () => {
     const old = new Date("2026-03-01T00:00:00.000Z");
     const recent = new Date("2026-03-10T00:00:00.000Z");
 
-    await repository.save({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
-    await repository.save({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
+    await createMemory({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
+    await createMemory({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
 
     const results = await repository.search({
       terms: ["SQLite"],
@@ -176,8 +202,8 @@ describe("SqliteMemoryRepository", () => {
     const old = new Date("2026-03-01T00:00:00.000Z");
     const recent = new Date("2026-03-10T00:00:00.000Z");
 
-    await repository.save({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
-    await repository.save({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
+    await createMemory({ id: "old", content: "SQLite WAL mode.", createdAt: old, updatedAt: old });
+    await createMemory({ id: "recent", content: "SQLite WAL mode.", createdAt: recent, updatedAt: recent });
 
     const results = await repository.search({
       terms: ["SQLite"],
@@ -201,7 +227,7 @@ describe("SqliteMemoryRepository", () => {
   it("preserves raw FTS score ordering without service-level workspace reranking", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "higher-score",
       content: "SQLite database engine database database database.",
       workspace: "/repo-other",
@@ -209,7 +235,7 @@ describe("SqliteMemoryRepository", () => {
       updatedAt: createdAt,
     });
 
-    await repository.save({
+    await createMemory({
       id: "preferred-workspace",
       content: "SQLite is a great embedded database engine.",
       workspace: "/repo-preferred",
@@ -229,10 +255,10 @@ describe("SqliteMemoryRepository", () => {
     expect(results[1]?.score).toBeLessThan(1);
   });
 
-  it("findById returns a memory by id", async () => {
+  it("get returns a memory by id", async () => {
     const createdAt = new Date("2026-03-07T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "find-me",
       content: "Findable memory.",
       workspace: "/repo-a",
@@ -240,7 +266,7 @@ describe("SqliteMemoryRepository", () => {
       updatedAt: createdAt,
     });
 
-    const result = await repository.findById("find-me");
+    const result = await repository.get("find-me");
 
     expect(result).toBeDefined();
     expect(result?.id).toBe("find-me");
@@ -249,22 +275,22 @@ describe("SqliteMemoryRepository", () => {
     expect(result?.createdAt.getTime()).toBe(createdAt.getTime());
   });
 
-  it("findById returns undefined for nonexistent id", async () => {
-    const result = await repository.findById("nonexistent");
+  it("get returns undefined for nonexistent id", async () => {
+    const result = await repository.get("nonexistent");
 
     expect(result).toBeUndefined();
   });
 
-  it("findAll returns memories newest-first with limit", async () => {
+  it("list returns memories newest-first with limit", async () => {
     const t1 = new Date("2026-03-01T00:00:00.000Z");
     const t2 = new Date("2026-03-02T00:00:00.000Z");
     const t3 = new Date("2026-03-03T00:00:00.000Z");
 
-    await repository.save({ id: "m1", content: "First.", createdAt: t1, updatedAt: t1 });
-    await repository.save({ id: "m2", content: "Second.", createdAt: t2, updatedAt: t2 });
-    await repository.save({ id: "m3", content: "Third.", createdAt: t3, updatedAt: t3 });
+    await createMemory({ id: "m1", content: "First.", createdAt: t1, updatedAt: t1 });
+    await createMemory({ id: "m2", content: "Second.", createdAt: t2, updatedAt: t2 });
+    await createMemory({ id: "m3", content: "Third.", createdAt: t3, updatedAt: t3 });
 
-    const page = await repository.findAll({ offset: 0, limit: 2 });
+    const page = await repository.list({ offset: 0, limit: 2 });
 
     expect(page.items).toHaveLength(2);
     expect(page.items[0]?.id).toBe("m3");
@@ -272,17 +298,17 @@ describe("SqliteMemoryRepository", () => {
     expect(page.hasMore).toBe(true);
   });
 
-  it("findAll supports offset-based pagination", async () => {
+  it("list supports offset-based pagination", async () => {
     const t1 = new Date("2026-03-01T00:00:00.000Z");
     const t2 = new Date("2026-03-02T00:00:00.000Z");
     const t3 = new Date("2026-03-03T00:00:00.000Z");
 
-    await repository.save({ id: "m1", content: "First.", createdAt: t1, updatedAt: t1 });
-    await repository.save({ id: "m2", content: "Second.", createdAt: t2, updatedAt: t2 });
-    await repository.save({ id: "m3", content: "Third.", createdAt: t3, updatedAt: t3 });
+    await createMemory({ id: "m1", content: "First.", createdAt: t1, updatedAt: t1 });
+    await createMemory({ id: "m2", content: "Second.", createdAt: t2, updatedAt: t2 });
+    await createMemory({ id: "m3", content: "Third.", createdAt: t3, updatedAt: t3 });
 
-    const page1 = await repository.findAll({ offset: 0, limit: 2 });
-    const page2 = await repository.findAll({ offset: 2, limit: 2 });
+    const page1 = await repository.list({ offset: 0, limit: 2 });
+    const page2 = await repository.list({ offset: 2, limit: 2 });
 
     expect(page1.items.map((m) => m.id)).toEqual(["m3", "m2"]);
     expect(page1.hasMore).toBe(true);
@@ -290,25 +316,25 @@ describe("SqliteMemoryRepository", () => {
     expect(page2.hasMore).toBe(false);
   });
 
-  it("findAll filters by workspace", async () => {
+  it("list filters by workspace", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "a1", content: "In A.", workspace: "/a", createdAt: t, updatedAt: t });
-    await repository.save({ id: "b1", content: "In B.", workspace: "/b", createdAt: t, updatedAt: t });
+    await createMemory({ id: "a1", content: "In A.", workspace: "/a", createdAt: t, updatedAt: t });
+    await createMemory({ id: "b1", content: "In B.", workspace: "/b", createdAt: t, updatedAt: t });
 
-    const page = await repository.findAll({ offset: 0, limit: 10, workspace: "/a" });
+    const page = await repository.list({ offset: 0, limit: 10, workspace: "/a" });
 
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.id).toBe("a1");
   });
 
-  it("findAll filters by workspaceIsNull", async () => {
+  it("list filters by workspaceIsNull", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "ws1", content: "Has workspace.", workspace: "/a", createdAt: t, updatedAt: t });
-    await repository.save({ id: "no-ws", content: "No workspace.", createdAt: t, updatedAt: t });
+    await createMemory({ id: "ws1", content: "Has workspace.", workspace: "/a", createdAt: t, updatedAt: t });
+    await createMemory({ id: "no-ws", content: "No workspace.", createdAt: t, updatedAt: t });
 
-    const page = await repository.findAll({ offset: 0, limit: 10, workspaceIsNull: true });
+    const page = await repository.list({ offset: 0, limit: 10, workspaceIsNull: true });
 
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.id).toBe("no-ws");
@@ -317,7 +343,7 @@ describe("SqliteMemoryRepository", () => {
   it("update changes content and bumps updated_at", async () => {
     const createdAt = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({
+    await createMemory({
       id: "to-update",
       content: "Original content.",
       workspace: "/repo",
@@ -325,7 +351,7 @@ describe("SqliteMemoryRepository", () => {
       updatedAt: createdAt,
     });
 
-    const updated = await repository.update("to-update", "New content.");
+    const updated = await repository.update({ id: "to-update", content: "New content." });
 
     expect(updated.content).toBe("New content.");
     expect(updated.workspace).toBe("/repo");
@@ -336,8 +362,8 @@ describe("SqliteMemoryRepository", () => {
   it("update syncs FTS index", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "fts-update", content: "alpha bravo.", createdAt: t, updatedAt: t });
-    await repository.update("fts-update", "charlie delta.");
+    await createMemory({ id: "fts-update", content: "alpha bravo.", createdAt: t, updatedAt: t });
+    await repository.update({ id: "fts-update", content: "charlie delta." });
 
     const oldSearch = await repository.search({ terms: ["alpha"], limit: 5 });
     const newSearch = await repository.search({ terms: ["charlie"], limit: 5 });
@@ -350,24 +376,24 @@ describe("SqliteMemoryRepository", () => {
   it("update throws NotFoundError for nonexistent id", async () => {
     const { NotFoundError } = await import("./errors.ts");
 
-    expect(repository.update("nonexistent", "content")).rejects.toBeInstanceOf(NotFoundError);
+    expect(repository.update({ id: "nonexistent", content: "content" })).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("delete removes a memory", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "to-delete", content: "Delete me.", createdAt: t, updatedAt: t });
-    await repository.delete("to-delete");
+    await createMemory({ id: "to-delete", content: "Delete me.", createdAt: t, updatedAt: t });
+    await repository.delete({ id: "to-delete" });
 
-    const result = await repository.findById("to-delete");
+    const result = await repository.get("to-delete");
     expect(result).toBeUndefined();
   });
 
   it("delete syncs FTS index", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "fts-delete", content: "searchable unique term.", createdAt: t, updatedAt: t });
-    await repository.delete("fts-delete");
+    await createMemory({ id: "fts-delete", content: "searchable unique term.", createdAt: t, updatedAt: t });
+    await repository.delete({ id: "fts-delete" });
 
     const results = await repository.search({ terms: ["searchable"], limit: 5 });
     expect(results).toHaveLength(0);
@@ -376,10 +402,10 @@ describe("SqliteMemoryRepository", () => {
   it("listWorkspaces returns distinct non-null workspaces sorted", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
-    await repository.save({ id: "a1", content: "A.", workspace: "/z-repo", createdAt: t, updatedAt: t });
-    await repository.save({ id: "a2", content: "A2.", workspace: "/z-repo", createdAt: t, updatedAt: t });
-    await repository.save({ id: "b1", content: "B.", workspace: "/a-repo", createdAt: t, updatedAt: t });
-    await repository.save({ id: "g1", content: "Global.", createdAt: t, updatedAt: t });
+    await createMemory({ id: "a1", content: "A.", workspace: "/z-repo", createdAt: t, updatedAt: t });
+    await createMemory({ id: "a2", content: "A2.", workspace: "/z-repo", createdAt: t, updatedAt: t });
+    await createMemory({ id: "b1", content: "B.", workspace: "/a-repo", createdAt: t, updatedAt: t });
+    await createMemory({ id: "g1", content: "Global.", createdAt: t, updatedAt: t });
 
     const workspaces = await repository.listWorkspaces();
 
@@ -389,6 +415,6 @@ describe("SqliteMemoryRepository", () => {
   it("delete throws NotFoundError for nonexistent id", async () => {
     const { NotFoundError } = await import("./errors.ts");
 
-    expect(repository.delete("nonexistent")).rejects.toBeInstanceOf(NotFoundError);
+    expect(repository.delete({ id: "nonexistent" })).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -1,25 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createMcpServer } from "./mcp-server.ts";
-import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "./memory.ts";
-import { MemoryService } from "./memory-service.ts";
+import type {
+  CreateMemoryInput,
+  DeleteMemoryInput,
+  ListMemoriesInput,
+  MemoryApi,
+  MemoryPage,
+  MemoryRecord,
+  MemorySearchResult,
+  SearchMemoryInput,
+  UpdateMemoryInput,
+} from "../memory.ts";
+import { MemoryService } from "../memory-service.ts";
+import { createMcpServer } from "./server.ts";
 
-class FakeMemoryRepository implements MemoryRepository {
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
-    return memory;
+class FakeMemoryRepository implements MemoryApi {
+  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
+    const now = new Date();
+    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
   }
 
-  async search(_query: MemorySearchQuery): Promise<MemorySearchResult[]> {
+  async search(_query: SearchMemoryInput): Promise<MemorySearchResult[]> {
     return [];
   }
 
-  async update(_id: string, _content: string): Promise<MemoryRecord> {
+  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
     throw new Error("Not implemented");
   }
 
-  async delete(_id: string): Promise<void> {
+  async delete(_input: DeleteMemoryInput): Promise<void> {
     throw new Error("Not implemented");
+  }
+
+  async get(_id: string): Promise<MemoryRecord | undefined> {
+    return undefined;
+  }
+
+  async list(_input: ListMemoriesInput): Promise<MemoryPage> {
+    return { items: [], hasMore: false };
+  }
+
+  async listWorkspaces(): Promise<string[]> {
+    return [];
   }
 }
 

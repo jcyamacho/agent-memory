@@ -1,6 +1,16 @@
 import { describe, expect, it } from "bun:test";
 import { NotFoundError, ValidationError } from "./errors.ts";
-import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "./memory.ts";
+import type {
+  CreateMemoryInput,
+  DeleteMemoryInput,
+  ListMemoriesInput,
+  MemoryApi,
+  MemoryPage,
+  MemoryRecord,
+  MemorySearchResult,
+  SearchMemoryInput,
+  UpdateMemoryInput,
+} from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 import { MemoryService, RECALL_CANDIDATE_LIMIT_MULTIPLIER } from "./memory-service.ts";
 
@@ -21,9 +31,10 @@ function createSearchResult(id: string, overrides: Partial<MemorySearchResult> =
   };
 }
 
-class FakeMemoryRepository implements MemoryRepository {
-  public saved: MemoryRecord[] = [];
-  public lastSearchQuery: MemorySearchQuery | null = null;
+class FakeMemoryRepository implements MemoryApi {
+  public created: MemoryRecord[] = [];
+  public lastSearchQuery: SearchMemoryInput | null = null;
+  public lastListInput: ListMemoriesInput | null = null;
   public searchResults: MemorySearchResult[] = [
     createSearchResult("memory-1", {
       content: "Decisions should favor WAL mode for shared access.",
@@ -36,23 +47,54 @@ class FakeMemoryRepository implements MemoryRepository {
   public deletedId: string | undefined;
   public updateError: Error | undefined;
   public deleteError: Error | undefined;
+  public memory: MemoryRecord | undefined = {
+    id: "memory-1",
+    content: "Shared read policy belongs in the application layer.",
+    workspace: "/repo",
+    createdAt: DEFAULT_TIMESTAMP,
+    updatedAt: DEFAULT_TIMESTAMP,
+  };
 
-  async save(memory: MemoryRecord): Promise<MemoryRecord> {
-    this.saved.push(memory);
+  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
+    const now = new Date();
+    const memory: MemoryRecord = {
+      id: "memory-saved",
+      content: input.content,
+      workspace: input.workspace,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.created.push(memory);
     return memory;
   }
 
-  async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
+  async search(query: SearchMemoryInput): Promise<MemorySearchResult[]> {
     this.lastSearchQuery = query;
     return this.searchResults;
   }
 
-  async update(id: string, content: string): Promise<MemoryRecord> {
+  async get(id: string): Promise<MemoryRecord | undefined> {
+    return id === this.memory?.id ? this.memory : undefined;
+  }
+
+  async list(input: ListMemoriesInput): Promise<MemoryPage> {
+    this.lastListInput = input;
+    return {
+      items: this.memory ? [this.memory] : [],
+      hasMore: false,
+    };
+  }
+
+  async listWorkspaces(): Promise<string[]> {
+    return this.memory?.workspace ? [this.memory.workspace] : [];
+  }
+
+  async update(input: UpdateMemoryInput): Promise<MemoryRecord> {
     if (this.updateError) throw this.updateError;
     const now = new Date();
     const record: MemoryRecord = {
-      id,
-      content,
+      id: input.id,
+      content: input.content,
       createdAt: DEFAULT_TIMESTAMP,
       updatedAt: now,
     };
@@ -60,23 +102,23 @@ class FakeMemoryRepository implements MemoryRepository {
     return record;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(input: DeleteMemoryInput): Promise<void> {
     if (this.deleteError) throw this.deleteError;
-    this.deletedId = id;
+    this.deletedId = input.id;
   }
 }
 
 describe("MemoryService", () => {
-  it("saves append-only memory with optional metadata", async () => {
+  it("creates append-only memory with optional metadata", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    const result = await service.save({
+    const result = await service.create({
       content: "Use a global SQLite database shared across tools.",
       workspace: DEFAULT_WORKSPACE,
     });
 
-    expect(repository.saved).toHaveLength(1);
+    expect(repository.created).toHaveLength(1);
     expect(result.content).toBe("Use a global SQLite database shared across tools.");
     expect(result.workspace).toBe(DEFAULT_WORKSPACE);
     expect(result.id.length).toBeGreaterThan(0);
@@ -340,62 +382,113 @@ describe("MemoryService", () => {
     expect(results[0]?.id).toBe("newer");
   });
 
-  it("revises memory content and returns the updated record", async () => {
+  it("updates memory content and returns the updated record", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    const result = await service.revise({ id: "memory-1", content: "Updated content." });
+    const result = await service.update({ id: "memory-1", content: "Updated content." });
 
     expect(repository.updatedRecord).toBeDefined();
     expect(result.id).toBe("memory-1");
     expect(result.content).toBe("Updated content.");
   });
 
-  it("trims content before delegating revise to the repository", async () => {
+  it("trims content before delegating update to the repository", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    const result = await service.revise({ id: "memory-1", content: "  trimmed  " });
+    const result = await service.update({ id: "memory-1", content: "  trimmed  " });
 
     expect(result.content).toBe("trimmed");
   });
 
-  it("throws ValidationError when revise content is empty", async () => {
+  it("throws ValidationError when update content is empty", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    await expect(service.revise({ id: "memory-1", content: "   " })).rejects.toThrow(ValidationError);
+    await expect(service.update({ id: "memory-1", content: "   " })).rejects.toThrow(ValidationError);
   });
 
-  it("propagates NotFoundError from repository on revise", async () => {
+  it("propagates NotFoundError from repository on update", async () => {
     const repository = new FakeMemoryRepository();
     repository.updateError = new NotFoundError("Memory not found.");
     const service = new MemoryService(repository);
 
-    await expect(service.revise({ id: "missing", content: "x" })).rejects.toThrow(NotFoundError);
+    await expect(service.update({ id: "missing", content: "x" })).rejects.toThrow(NotFoundError);
   });
 
-  it("forgets a memory successfully", async () => {
+  it("deletes a memory successfully", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    await service.forget({ id: "memory-1" });
+    await service.delete({ id: "memory-1" });
 
     expect(repository.deletedId).toBe("memory-1");
   });
 
-  it("throws ValidationError when forget id is empty", async () => {
+  it("throws ValidationError when delete id is empty", async () => {
     const repository = new FakeMemoryRepository();
     const service = new MemoryService(repository);
 
-    await expect(service.forget({ id: "   " })).rejects.toThrow(ValidationError);
+    await expect(service.delete({ id: "   " })).rejects.toThrow(ValidationError);
   });
 
-  it("propagates NotFoundError from repository on forget", async () => {
+  it("propagates NotFoundError from repository on delete", async () => {
     const repository = new FakeMemoryRepository();
     repository.deleteError = new NotFoundError("Memory not found.");
     const service = new MemoryService(repository);
 
-    await expect(service.forget({ id: "memory-1" })).rejects.toThrow(NotFoundError);
+    await expect(service.delete({ id: "memory-1" })).rejects.toThrow(NotFoundError);
+  });
+
+  it("gets a memory by id", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    const result = await service.get("memory-1");
+
+    expect(result).toEqual(repository.memory);
+  });
+
+  it("normalizes list input before delegating to the repository", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    await service.list({
+      workspace: "  /repo  ",
+      workspaceIsNull: true,
+      offset: -10,
+      limit: 999,
+    });
+
+    expect(repository.lastListInput).toEqual({
+      workspace: "/repo",
+      workspaceIsNull: false,
+      offset: 0,
+      limit: 100,
+    });
+  });
+
+  it("defaults list input when values are omitted", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    await service.list({});
+
+    expect(repository.lastListInput).toEqual({
+      workspace: undefined,
+      workspaceIsNull: false,
+      offset: 0,
+      limit: 15,
+    });
+  });
+
+  it("lists workspaces", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    const workspaces = await service.listWorkspaces();
+
+    expect(workspaces).toEqual(["/repo"]);
   });
 });
