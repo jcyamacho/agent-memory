@@ -13,6 +13,14 @@ class FakeMemoryRepository implements MemoryRepository {
   async search(_query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     return [];
   }
+
+  async update(_id: string, _content: string): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async delete(_id: string): Promise<void> {
+    throw new Error("Not implemented");
+  }
 }
 
 describe("createMcpServer", () => {
@@ -41,6 +49,6 @@ describe("createMcpServer", () => {
   it("registers the memory tools", async () => {
     const response = await client.listTools();
 
-    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["recall", "remember"]);
+    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["forget", "recall", "remember", "revise"]);
   });
 });

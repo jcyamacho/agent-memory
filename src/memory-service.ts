@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { ValidationError } from "./errors.ts";
 import type {
+  ForgetMemoryInput,
   MemoryRecord,
   MemoryRepository,
   MemorySearchQuery,
   MemorySearchResult,
+  ReviseMemoryInput,
   SaveMemoryInput,
   SearchMemoryInput,
 } from "./memory.ts";
@@ -42,6 +44,18 @@ export class MemoryService {
     };
 
     return this.repository.save(memory);
+  }
+
+  async revise(input: ReviseMemoryInput): Promise<MemoryRecord> {
+    const content = input.content.trim();
+    if (!content) throw new ValidationError("Memory content is required.");
+    return this.repository.update(input.id, content);
+  }
+
+  async forget(input: ForgetMemoryInput): Promise<void> {
+    const id = input.id.trim();
+    if (!id) throw new ValidationError("Memory id is required.");
+    return this.repository.delete(id);
   }
 
   async search(input: SearchMemoryInput): Promise<MemorySearchResult[]> {

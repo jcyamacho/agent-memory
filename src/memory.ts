@@ -41,19 +41,28 @@ export interface MemoryPage {
 export interface MemoryRepository {
   save(memory: MemoryRecord): Promise<MemoryRecord>;
   search(query: MemorySearchQuery): Promise<MemorySearchResult[]>;
+  update(id: string, content: string): Promise<MemoryRecord>;
+  delete(id: string): Promise<void>;
 }
 
 export interface MemoryAdmin {
   findById(id: string): Promise<MemoryRecord | undefined>;
   findAll(options: MemoryListOptions): Promise<MemoryPage>;
-  update(id: string, content: string): Promise<MemoryRecord>;
-  delete(id: string): Promise<void>;
   listWorkspaces(): Promise<string[]>;
 }
 
 export interface SaveMemoryInput {
   content: string;
   workspace?: string;
+}
+
+export interface ReviseMemoryInput {
+  id: string;
+  content: string;
+}
+
+export interface ForgetMemoryInput {
+  id: string;
 }
 
 export interface SearchMemoryInput {

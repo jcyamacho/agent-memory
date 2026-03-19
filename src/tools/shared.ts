@@ -7,7 +7,7 @@ export const toMcpError = (error: unknown): McpError => {
   }
 
   if (error instanceof MemoryError) {
-    if (error.code === "VALIDATION_ERROR") {
+    if (error.code === "VALIDATION_ERROR" || error.code === "NOT_FOUND") {
       return new McpError(ErrorCode.InvalidParams, error.message);
     }
 

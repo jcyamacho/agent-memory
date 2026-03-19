@@ -17,6 +17,14 @@ class RememberOnlyRepository implements MemoryRepository {
   async search(_query: MemorySearchQuery) {
     return [];
   }
+
+  async update(_id: string, _content: string): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async delete(_id: string): Promise<void> {
+    throw new Error("Not implemented");
+  }
 }
 
 describe("registerRememberTool", () => {

@@ -3,10 +3,12 @@
 Persistent memory for MCP-powered coding agents.
 
 `agent-memory` is a stdio MCP server that gives your LLM durable memory backed
-by SQLite. It exposes two tools:
+by SQLite. It exposes four tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
 - `recall` -> retrieve the most relevant memories later
+- `revise` -> update an existing memory when it becomes outdated
+- `forget` -> delete a memory that is no longer relevant
 
 Use it when your agent should remember preferences, project facts, and prior
 decisions across sessions.
@@ -66,7 +68,10 @@ Optional LLM instructions to reinforce the MCP's built-in guidance:
 Use `recall` at the start of every conversation and again mid-task before
 making design choices or picking conventions. Use `remember` when the user
 corrects your approach, a key decision is established, or you learn project
-context not obvious from the code. Always pass workspace.
+context not obvious from the code. Before saving, recall to check whether a
+memory about the same fact already exists -- if so, use `revise` to update
+it instead of creating a duplicate. Use `forget` to remove memories that
+are wrong or no longer relevant. Always pass workspace.
 ```
 
 ## What It Stores
@@ -92,8 +97,7 @@ Opens at `http://localhost:6580`. Use `--port` to change:
 npx -y @jcyamacho/agent-memory --ui --port 9090
 ```
 
-The web UI uses the same database as the MCP server. LLM tools remain
-append-only; the web UI is the only way to edit or delete memories.
+The web UI uses the same database as the MCP server.
 
 ## Tools
 
@@ -126,6 +130,31 @@ Inputs:
 Output:
 
 - `results[]` with `id`, `content`, `score`, `workspace`, and `updated_at`
+
+### `revise`
+
+Update the content of an existing memory.
+
+Inputs:
+
+- `id` -> the memory id from a previous recall result
+- `content` -> replacement content for the memory
+
+Output:
+
+- `id`, `updated_at`
+
+### `forget`
+
+Permanently delete a memory.
+
+Inputs:
+
+- `id` -> the memory id from a previous recall result
+
+Output:
+
+- `id`, `deleted`
 
 ## How Ranking Works
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { NotFoundError, ValidationError } from "./errors.ts";
 import type { MemoryRecord, MemoryRepository, MemorySearchQuery, MemorySearchResult } from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 import { MemoryService, RECALL_CANDIDATE_LIMIT_MULTIPLIER } from "./memory-service.ts";
@@ -31,6 +32,10 @@ class FakeMemoryRepository implements MemoryRepository {
       updatedAt: new Date("2026-03-07T10:00:00.000Z"),
     }),
   ];
+  public updatedRecord: MemoryRecord | undefined;
+  public deletedId: string | undefined;
+  public updateError: Error | undefined;
+  public deleteError: Error | undefined;
 
   async save(memory: MemoryRecord): Promise<MemoryRecord> {
     this.saved.push(memory);
@@ -40,6 +45,24 @@ class FakeMemoryRepository implements MemoryRepository {
   async search(query: MemorySearchQuery): Promise<MemorySearchResult[]> {
     this.lastSearchQuery = query;
     return this.searchResults;
+  }
+
+  async update(id: string, content: string): Promise<MemoryRecord> {
+    if (this.updateError) throw this.updateError;
+    const now = new Date();
+    const record: MemoryRecord = {
+      id,
+      content,
+      createdAt: DEFAULT_TIMESTAMP,
+      updatedAt: now,
+    };
+    this.updatedRecord = record;
+    return record;
+  }
+
+  async delete(id: string): Promise<void> {
+    if (this.deleteError) throw this.deleteError;
+    this.deletedId = id;
   }
 }
 
@@ -315,5 +338,64 @@ describe("MemoryService", () => {
     });
 
     expect(results[0]?.id).toBe("newer");
+  });
+
+  it("revises memory content and returns the updated record", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    const result = await service.revise({ id: "memory-1", content: "Updated content." });
+
+    expect(repository.updatedRecord).toBeDefined();
+    expect(result.id).toBe("memory-1");
+    expect(result.content).toBe("Updated content.");
+  });
+
+  it("trims content before delegating revise to the repository", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    const result = await service.revise({ id: "memory-1", content: "  trimmed  " });
+
+    expect(result.content).toBe("trimmed");
+  });
+
+  it("throws ValidationError when revise content is empty", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    await expect(service.revise({ id: "memory-1", content: "   " })).rejects.toThrow(ValidationError);
+  });
+
+  it("propagates NotFoundError from repository on revise", async () => {
+    const repository = new FakeMemoryRepository();
+    repository.updateError = new NotFoundError("Memory not found.");
+    const service = new MemoryService(repository);
+
+    await expect(service.revise({ id: "missing", content: "x" })).rejects.toThrow(NotFoundError);
+  });
+
+  it("forgets a memory successfully", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    await service.forget({ id: "memory-1" });
+
+    expect(repository.deletedId).toBe("memory-1");
+  });
+
+  it("throws ValidationError when forget id is empty", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = new MemoryService(repository);
+
+    await expect(service.forget({ id: "   " })).rejects.toThrow(ValidationError);
+  });
+
+  it("propagates NotFoundError from repository on forget", async () => {
+    const repository = new FakeMemoryRepository();
+    repository.deleteError = new NotFoundError("Memory not found.");
+    const service = new MemoryService(repository);
+
+    await expect(service.forget({ id: "memory-1" })).rejects.toThrow(NotFoundError);
   });
 });
