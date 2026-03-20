@@ -1,17 +1,17 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { version } from "../package.json";
 import { resolveConfig } from "./config.ts";
+import { EmbeddingService } from "./embedding/index.ts";
 import { createMcpServer } from "./mcp/server.ts";
 import { MemoryService } from "./memory-service.ts";
-import { openMemoryDatabase } from "./sqlite-db.ts";
-import { SqliteMemoryRepository } from "./sqlite-memory-repository.ts";
+import { openMemoryDatabase, SqliteMemoryRepository } from "./sqlite/index.ts";
 import { startWebServer } from "./ui/server.tsx";
 
 const config = resolveConfig();
-const database = openMemoryDatabase(config.databasePath);
-
+const embeddingService = new EmbeddingService({ modelsCachePath: config.modelsCachePath });
+const database = await openMemoryDatabase(config.databasePath, { embeddingService });
 const repository = new SqliteMemoryRepository(database);
-const memoryService = new MemoryService(repository);
+const memoryService = new MemoryService(repository, embeddingService);
 
 if (config.uiMode) {
   const server = startWebServer(memoryService, { port: config.uiPort });

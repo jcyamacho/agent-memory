@@ -1,23 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { NotFoundError, PersistenceError } from "./errors.ts";
+import { NotFoundError, PersistenceError } from "../errors.ts";
 import type {
-  CreateMemoryInput,
+  CreateMemoryEntityInput,
   DeleteMemoryInput,
   ListMemoriesInput,
-  MemoryApi,
-  MemoryPage,
-  MemoryRecord,
-  MemorySearchResult,
+  MemoryEntity,
+  MemoryEntityPage,
+  MemoryRepository,
+  MemorySearchEntity,
   SearchMemoryInput,
-  UpdateMemoryInput,
-} from "./memory.ts";
-import { toNormalizedScore } from "./memory.ts";
-import type { SqliteDatabaseLike, SqlStatement } from "./sqlite-db.ts";
+  UpdateMemoryEntityInput,
+} from "../memory.ts";
+import { toNormalizedScore } from "../memory.ts";
+import { decodeEmbedding, encodeEmbedding } from "./embedding-codec.ts";
+import type { SqliteDatabaseLike, SqlStatement } from "./types.ts";
 
 interface MemoryRow {
   id: string;
   content: string;
   workspace: string | null;
+  embedding: Uint8Array | ArrayBuffer;
   created_at: number;
   updated_at: number;
 }
@@ -29,7 +31,7 @@ interface ScoredMemoryRow extends MemoryRow {
 const DEFAULT_SEARCH_LIMIT = 15;
 const DEFAULT_LIST_LIMIT = 15;
 
-export class SqliteMemoryRepository implements MemoryApi {
+export class SqliteMemoryRepository implements MemoryRepository {
   private readonly database: SqliteDatabaseLike;
   private readonly insertStatement: SqlStatement;
 
@@ -45,9 +47,11 @@ export class SqliteMemoryRepository implements MemoryApi {
         id,
         content,
         workspace,
+        embedding,
         created_at,
         updated_at
       ) VALUES (
+        ?,
         ?,
         ?,
         ?,
@@ -56,21 +60,24 @@ export class SqliteMemoryRepository implements MemoryApi {
       )
     `);
     this.getStatement = database.prepare(
-      "SELECT id, content, workspace, created_at, updated_at FROM memories WHERE id = ?",
+      "SELECT id, content, workspace, embedding, created_at, updated_at FROM memories WHERE id = ?",
     );
-    this.updateStatement = database.prepare("UPDATE memories SET content = ?, updated_at = ? WHERE id = ?");
+    this.updateStatement = database.prepare(
+      "UPDATE memories SET content = ?, embedding = ?, updated_at = ? WHERE id = ?",
+    );
     this.deleteStatement = database.prepare("DELETE FROM memories WHERE id = ?");
     this.listWorkspacesStatement = database.prepare(
       "SELECT DISTINCT workspace FROM memories WHERE workspace IS NOT NULL ORDER BY workspace",
     );
   }
 
-  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
+  async create(input: CreateMemoryEntityInput): Promise<MemoryEntity> {
     try {
       const now = new Date();
-      const memory: MemoryRecord = {
+      const memory: MemoryEntity = {
         id: randomUUID(),
         content: input.content,
+        embedding: input.embedding,
         workspace: input.workspace,
         createdAt: now,
         updatedAt: now,
@@ -79,6 +86,7 @@ export class SqliteMemoryRepository implements MemoryApi {
         memory.id,
         memory.content,
         memory.workspace,
+        encodeEmbedding(memory.embedding),
         memory.createdAt.getTime(),
         memory.updatedAt.getTime(),
       );
@@ -88,7 +96,7 @@ export class SqliteMemoryRepository implements MemoryApi {
     }
   }
 
-  async search(query: SearchMemoryInput): Promise<MemorySearchResult[]> {
+  async search(query: SearchMemoryInput): Promise<MemorySearchEntity[]> {
     try {
       const whereParams: unknown[] = [toFtsQuery(query.terms)];
       const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
@@ -112,6 +120,7 @@ export class SqliteMemoryRepository implements MemoryApi {
           m.id,
           m.content,
           m.workspace,
+          m.embedding,
           m.created_at,
           m.updated_at,
           MAX(0, -bm25(memories_fts)) AS score
@@ -127,7 +136,7 @@ export class SqliteMemoryRepository implements MemoryApi {
       const maxScore = Math.max(...rows.map((row) => row.score), 0);
 
       return rows.map((row) => ({
-        ...toMemoryRecord(row),
+        ...toMemoryEntity(row),
         score: toNormalizedScore(maxScore > 0 ? row.score / maxScore : 0),
       }));
     } catch (error) {
@@ -136,17 +145,18 @@ export class SqliteMemoryRepository implements MemoryApi {
       });
     }
   }
-  async get(id: string): Promise<MemoryRecord | undefined> {
+
+  async get(id: string): Promise<MemoryEntity | undefined> {
     try {
       const rows = this.getStatement.all(id) as MemoryRow[];
       const row = rows[0];
-      return row ? toMemoryRecord(row) : undefined;
+      return row ? toMemoryEntity(row) : undefined;
     } catch (error) {
       throw new PersistenceError("Failed to find memory.", { cause: error });
     }
   }
 
-  async list(options: ListMemoriesInput): Promise<MemoryPage> {
+  async list(options: ListMemoriesInput): Promise<MemoryEntityPage> {
     try {
       const whereClauses: string[] = [];
       const params: unknown[] = [];
@@ -165,7 +175,7 @@ export class SqliteMemoryRepository implements MemoryApi {
       params.push(queryLimit, offset);
 
       const statement = this.database.prepare(`
-        SELECT id, content, workspace, created_at, updated_at
+        SELECT id, content, workspace, embedding, created_at, updated_at
         FROM memories
         ${whereClause}
         ORDER BY created_at DESC
@@ -174,7 +184,7 @@ export class SqliteMemoryRepository implements MemoryApi {
 
       const rows = statement.all(...params) as MemoryRow[];
       const hasMore = rows.length > limit;
-      const items = (hasMore ? rows.slice(0, limit) : rows).map(toMemoryRecord);
+      const items = (hasMore ? rows.slice(0, limit) : rows).map(toMemoryEntity);
 
       return { items, hasMore };
     } catch (error) {
@@ -182,11 +192,13 @@ export class SqliteMemoryRepository implements MemoryApi {
     }
   }
 
-  async update(input: UpdateMemoryInput): Promise<MemoryRecord> {
+  async update(input: UpdateMemoryEntityInput): Promise<MemoryEntity> {
     let result: { changes: number } | undefined;
     try {
       const now = Date.now();
-      result = this.updateStatement.run(input.content, now, input.id) as { changes: number };
+      result = this.updateStatement.run(input.content, encodeEmbedding(input.embedding), now, input.id) as {
+        changes: number;
+      };
     } catch (error) {
       throw new PersistenceError("Failed to update memory.", { cause: error });
     }
@@ -224,9 +236,10 @@ export class SqliteMemoryRepository implements MemoryApi {
   }
 }
 
-const toMemoryRecord = (row: MemoryRow): MemoryRecord => ({
+const toMemoryEntity = (row: MemoryRow): MemoryEntity => ({
   id: row.id,
   content: row.content,
+  embedding: decodeEmbedding(row.embedding),
   workspace: row.workspace ?? undefined,
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),

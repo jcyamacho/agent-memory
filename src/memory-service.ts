@@ -2,10 +2,15 @@ import { ValidationError } from "./errors.ts";
 import type {
   CreateMemoryInput,
   DeleteMemoryInput,
+  EmbeddingGenerator,
   ListMemoriesInput,
   MemoryApi,
+  MemoryEntity,
+  MemoryEntityPage,
   MemoryPage,
   MemoryRecord,
+  MemoryRepository,
+  MemorySearchEntity,
   MemorySearchResult,
   SearchMemoryInput,
   UpdateMemoryInput,
@@ -20,7 +25,10 @@ const DEFAULT_LIST_LIMIT = 15;
 const MAX_LIST_LIMIT = 100;
 
 export class MemoryService implements MemoryApi {
-  constructor(private readonly repository: MemoryApi) {}
+  constructor(
+    private readonly repository: MemoryRepository,
+    private readonly embeddingService: EmbeddingGenerator,
+  ) {}
 
   async create(input: CreateMemoryInput): Promise<MemoryRecord> {
     const content = input.content.trim();
@@ -29,16 +37,26 @@ export class MemoryService implements MemoryApi {
       throw new ValidationError("Memory content is required.");
     }
 
-    return this.repository.create({
+    const memory = await this.repository.create({
       content,
+      embedding: await this.embeddingService.createVector(content),
       workspace: normalizeOptionalString(input.workspace),
     });
+
+    return toPublicMemoryRecord(memory);
   }
 
   async update(input: UpdateMemoryInput): Promise<MemoryRecord> {
     const content = input.content.trim();
     if (!content) throw new ValidationError("Memory content is required.");
-    return this.repository.update({ id: input.id, content });
+
+    const memory = await this.repository.update({
+      id: input.id,
+      content,
+      embedding: await this.embeddingService.createVector(content),
+    });
+
+    return toPublicMemoryRecord(memory);
   }
 
   async delete(input: DeleteMemoryInput): Promise<void> {
@@ -48,18 +66,21 @@ export class MemoryService implements MemoryApi {
   }
 
   async get(id: string): Promise<MemoryRecord | undefined> {
-    return this.repository.get(id);
+    const memory = await this.repository.get(id);
+    return memory ? toPublicMemoryRecord(memory) : undefined;
   }
 
   async list(input: ListMemoriesInput): Promise<MemoryPage> {
     const workspace = normalizeOptionalString(input.workspace);
 
-    return this.repository.list({
+    const page = await this.repository.list({
       workspace,
       workspaceIsNull: workspace ? false : Boolean(input.workspaceIsNull),
       offset: normalizeOffset(input.offset),
       limit: normalizeListLimit(input.limit),
     });
+
+    return toPublicMemoryPage(page);
   }
 
   async listWorkspaces(): Promise<string[]> {
@@ -82,9 +103,41 @@ export class MemoryService implements MemoryApi {
       updatedBefore: input.updatedBefore,
     };
 
-    const results = await this.repository.search(normalizedQuery);
-    return rerankSearchResults(results, workspace).slice(0, requestedLimit);
+    const [results, queryEmbedding] = await Promise.all([
+      this.repository.search(normalizedQuery),
+      this.embeddingService.createVector(terms.join(" ")),
+    ]);
+
+    return rerankSearchResults(results, workspace, queryEmbedding).slice(0, requestedLimit).map(toPublicSearchResult);
   }
+}
+
+function toPublicMemoryRecord(memory: MemoryEntity): MemoryRecord {
+  return {
+    id: memory.id,
+    content: memory.content,
+    workspace: memory.workspace,
+    createdAt: memory.createdAt,
+    updatedAt: memory.updatedAt,
+  };
+}
+
+function toPublicSearchResult(result: MemorySearchEntity): MemorySearchResult {
+  return {
+    id: result.id,
+    content: result.content,
+    score: result.score,
+    workspace: result.workspace,
+    createdAt: result.createdAt,
+    updatedAt: result.updatedAt,
+  };
+}
+
+function toPublicMemoryPage(page: MemoryEntityPage): MemoryPage {
+  return {
+    items: page.items.map(toPublicMemoryRecord),
+    hasMore: page.hasMore,
+  };
 }
 
 function normalizeLimit(value: number | undefined): number {

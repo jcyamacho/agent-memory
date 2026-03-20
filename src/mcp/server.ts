@@ -6,14 +6,15 @@ import { registerRememberTool } from "./tools/remember.ts";
 import { registerReviseTool } from "./tools/revise.ts";
 
 const SERVER_INSTRUCTIONS = [
-  "Stores decisions, corrections, and context that cannot be derived from code or git history.",
-  "Use `recall` at the start of every conversation and again mid-task before making design choices or picking conventions the user may have guided before.",
-  "Use `remember` when the user corrects your approach, states a preference, a key decision is established, or you learn project context not obvious from the code.",
-  "Before saving a new memory, recall to check whether a memory about the same fact already exists. If so, use `revise` to update it instead of creating a duplicate.",
-  "Use `revise` when a previously saved memory is outdated or inaccurate and needs correction rather than deletion.",
-  "Use `forget` to remove memories that are wrong, obsolete, or no longer relevant.",
-  "Always pass workspace (the current working directory) to scope results to the active project.",
-  "Omit workspace only when saving a memory that applies across all projects.",
+  "Use this server for durable memory: user preferences, corrections, decisions, and project context not obvious from code or git history.",
+  "Use `recall` at conversation start and before design choices, conventions, or edge cases.",
+  "Query `recall` with 2-5 short anchor-heavy terms or exact phrases likely to appear verbatim in memory text: identifiers, commands, file paths, and conventions.",
+  "`recall` is lexical-first; semantic reranking only reorders lexical matches.",
+  "If `recall` misses, retry once with overlapping alternate terms.",
+  "Use `remember` for one durable fact when the user states a preference, corrects you, or a reusable project decision becomes clear.",
+  "Call `recall` before `remember`; if the fact already exists, use `revise` instead of creating a duplicate.",
+  "Use `revise` to correct an existing memory and `forget` to remove a wrong or obsolete one.",
+  "Pass workspace for project-scoped calls. Omit it only for truly global memories.",
 ].join(" ");
 
 export function createMcpServer(memory: MemoryApi, version: string): McpServer {

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { AGENT_MEMORY_DB_PATH_ENV, DEFAULT_UI_PORT, resolveConfig } from "./config.ts";
+import {
+  AGENT_MEMORY_DB_PATH_ENV,
+  AGENT_MEMORY_MODELS_CACHE_PATH_ENV,
+  DEFAULT_UI_PORT,
+  resolveConfig,
+} from "./config.ts";
 
 describe("resolveConfig", () => {
   it("uses the configured database path from the environment", () => {
@@ -16,6 +21,15 @@ describe("resolveConfig", () => {
     const config = resolveConfig({});
 
     expect(config.databasePath).toBe(join(homedir(), ".config", "agent-memory", "memory.db"));
+    expect(config.modelsCachePath).toBe(join(homedir(), ".config", "agent-memory", "models"));
+  });
+
+  it("uses the configured models cache path from the environment", () => {
+    const config = resolveConfig({
+      [AGENT_MEMORY_MODELS_CACHE_PATH_ENV]: "/tmp/custom-models-cache",
+    });
+
+    expect(config.modelsCachePath).toBe("/tmp/custom-models-cache");
   });
 
   it("detects --ui flag", () => {

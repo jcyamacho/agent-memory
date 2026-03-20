@@ -7,14 +7,12 @@ const rememberInputSchema = {
   content: z
     .string()
     .describe(
-      "The fact, preference, decision, or context to remember. Use a single self-contained sentence or short note. One fact per memory.",
+      "One durable fact to save. Use a single self-contained sentence or short note with concrete nouns, identifiers, commands, file paths, or exact phrases the agent is likely to reuse.",
     ),
   workspace: z
     .string()
     .optional()
-    .describe(
-      "Always pass the current working directory to scope this memory to a project. Omit only when the memory applies across all projects (global preference).",
-    ),
+    .describe("Pass the current working directory for project-specific memories. Omit only for truly global memories."),
 };
 
 export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, "create">): void {
@@ -22,7 +20,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
     "remember",
     {
       description:
-        "Save durable context for later recall. Use this when the user corrects your approach, states a preference, a key decision or convention is established, or you learn project context not obvious from the code. Store one concise fact per memory. Do not store secrets, ephemeral task state, or information already in the codebase.",
+        'Save one durable memory for later recall. Use when the user states a stable preference, corrects you, or establishes reusable project context not obvious from code or git history. Save one fact per memory. Call `recall` first; use `revise` instead of creating duplicates. Do not store secrets, temporary task state, or codebase facts. Returns `<memory id="..." />`.',
       inputSchema: rememberInputSchema,
     },
     async ({ content, workspace }) => {

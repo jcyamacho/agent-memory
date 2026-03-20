@@ -62,16 +62,34 @@ With a custom database path:
 }
 ```
 
+With a custom model cache path:
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@jcyamacho/agent-memory"
+      ],
+      "env": {
+        "AGENT_MEMORY_MODELS_CACHE_PATH": "/absolute/path/to/models"
+      }
+    }
+  }
+}
+```
+
 Optional LLM instructions to reinforce the MCP's built-in guidance:
 
 ```text
-Use `recall` at the start of every conversation and again mid-task before
-making design choices or picking conventions. Use `remember` when the user
-corrects your approach, a key decision is established, or you learn project
-context not obvious from the code. Before saving, recall to check whether a
-memory about the same fact already exists -- if so, use `revise` to update
-it instead of creating a duplicate. Use `forget` to remove memories that
-are wrong or no longer relevant. Always pass workspace.
+Use `recall` at conversation start and before design choices, conventions, or
+edge cases. Query with 2-5 short anchor-heavy terms or exact phrases, not
+questions or sentences. `recall` is lexical-first; if it misses, retry once
+with overlapping alternate terms. Use `remember` for one durable fact, then
+use `revise` instead of duplicates and `forget` for wrong or obsolete
+memories. Always pass workspace unless the memory is truly global.
 ```
 
 ## What It Stores
@@ -101,60 +119,10 @@ The web UI uses the same database as the MCP server.
 
 ## Tools
 
-### `remember`
-
-Save durable context for later recall.
-
-Inputs:
-
-- `content` -> fact, preference, decision, or context to store
-- `workspace` -> repository or workspace path
-
-Output:
-
-- `id`
-
-### `recall`
-
-Retrieve relevant memories for the current task.
-
-Inputs:
-
-- `terms` -> 2-5 distinctive terms or short phrases that should appear in the
-  memory content; avoid full natural-language questions
-- `limit` -> maximum results to return
-- `workspace` -> workspace or repo path; biases ranking toward this workspace
-- `updated_after` -> ISO 8601 lower bound
-- `updated_before` -> ISO 8601 upper bound
-
-Output:
-
-- `results[]` with `id`, `content`, `score`, `workspace`, and `updated_at`
-
-### `revise`
-
-Update the content of an existing memory.
-
-Inputs:
-
-- `id` -> the memory id from a previous recall result
-- `content` -> replacement content for the memory
-
-Output:
-
-- `id`, `updated_at`
-
-### `forget`
-
-Permanently delete a memory.
-
-Inputs:
-
-- `id` -> the memory id from a previous recall result
-
-Output:
-
-- `id`, `deleted`
+- `remember` saves durable facts, preferences, decisions, and project context.
+- `recall` retrieves the most relevant saved memories.
+- `revise` updates an existing memory when it becomes outdated.
+- `forget` deletes a memory that is no longer relevant.
 
 ## How Ranking Works
 
@@ -163,18 +131,21 @@ memories:
 
 1. **Text relevance** is the primary signal -- memories whose content best
    matches your search terms rank highest.
-2. **Workspace match** is a strong secondary signal. When you pass
+2. **Embedding similarity** is the next strongest signal. Recall builds an
+   embedding from your normalized search terms and boosts memories whose stored
+   embeddings are most semantically similar.
+3. **Workspace match** is a strong secondary signal. When you pass
    `workspace`, exact matches rank highest, sibling repositories get a small
    boost, and unrelated workspaces rank lowest.
-3. **Global memories** (saved without a workspace) are treated as relevant
+4. **Global memories** (saved without a workspace) are treated as relevant
    everywhere. When you pass `workspace`, they rank below exact workspace
    matches and above sibling or unrelated repositories.
-4. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
+5. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
    ones when other signals are equal.
 
-If you omit `workspace`, recall falls back to text relevance and recency only.
-For best results, pass `workspace` whenever you have one. Save memories without
-a workspace only when they apply across all projects.
+If you omit `workspace`, recall still uses text relevance, embedding similarity,
+and recency. For best results, pass `workspace` whenever you have one. Save
+memories without a workspace only when they apply across all projects.
 
 ## Database location
 
@@ -195,6 +166,26 @@ Set `AGENT_MEMORY_DB_PATH` when you want to:
 - keep memory in a project-specific location
 - share a memory DB across multiple clients
 - store the DB somewhere easier to back up or inspect
+
+## Model cache location
+
+By default, downloaded embedding model files are cached at:
+
+```text
+~/.config/agent-memory/models
+```
+
+Override it with:
+
+```bash
+AGENT_MEMORY_MODELS_CACHE_PATH=/absolute/path/to/models
+```
+
+Set `AGENT_MEMORY_MODELS_CACHE_PATH` when you want to:
+
+- keep model artifacts out of `node_modules`
+- share the model cache across reinstalls or multiple clients
+- store model downloads somewhere easier to inspect or manage
 
 Beta note: schema changes are not migrated. If you are upgrading from an older
 beta, delete the existing memory DB and let the server create a new one.

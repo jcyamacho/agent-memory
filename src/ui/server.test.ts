@@ -6,8 +6,7 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryService } from "../memory-service.ts";
-import { initializeMemoryDatabase, type SqliteDatabaseLike } from "../sqlite-db.ts";
-import { SqliteMemoryRepository } from "../sqlite-memory-repository.ts";
+import { initializeMemoryDatabase, type SqliteDatabaseLike, SqliteMemoryRepository } from "../sqlite/index.ts";
 import { startWebServer } from "./server.tsx";
 
 describe("Web UI server", () => {
@@ -23,9 +22,13 @@ describe("Web UI server", () => {
     const databasePath = join(directory, "memory.db");
 
     database = new Database(databasePath);
-    initializeMemoryDatabase(database);
+    await initializeMemoryDatabase(database);
     repository = new SqliteMemoryRepository(database);
-    memoryService = new MemoryService(repository);
+    memoryService = new MemoryService(repository, {
+      async createVector() {
+        return [0.1, 0.2, 0.3];
+      },
+    });
     server = startWebServer(memoryService, { port: 0 });
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : 0;
@@ -39,7 +42,7 @@ describe("Web UI server", () => {
   });
 
   it("GET / returns server-rendered HTML with memories", async () => {
-    await repository.create({ content: "Server rendered." });
+    await memoryService.create({ content: "Server rendered." });
 
     const response = await fetch(`${baseUrl}/`);
 
@@ -51,8 +54,8 @@ describe("Web UI server", () => {
   });
 
   it("GET / filters by workspace query param", async () => {
-    await repository.create({ content: "In A.", workspace: "/a" });
-    await repository.create({ content: "In B.", workspace: "/b" });
+    await memoryService.create({ content: "In A.", workspace: "/a" });
+    await memoryService.create({ content: "In B.", workspace: "/b" });
 
     const response = await fetch(`${baseUrl}/?workspace=${encodeURIComponent("/a")}`);
     const body = await response.text();
@@ -76,7 +79,7 @@ describe("Web UI server", () => {
   });
 
   it("POST /memories/:id/update updates and redirects", async () => {
-    const memory = await repository.create({ content: "Old.", workspace: "/repo" });
+    const memory = await memoryService.create({ content: "Old.", workspace: "/repo" });
 
     const response = await fetch(`${baseUrl}/memories/${memory.id}/update`, {
       method: "POST",
@@ -91,7 +94,7 @@ describe("Web UI server", () => {
   });
 
   it("POST /memories/:id/delete deletes and redirects", async () => {
-    const memory = await repository.create({ content: "Gone." });
+    const memory = await memoryService.create({ content: "Gone." });
 
     const response = await fetch(`${baseUrl}/memories/${memory.id}/delete`, {
       method: "POST",
@@ -106,7 +109,7 @@ describe("Web UI server", () => {
   });
 
   it("POST /memories/:id/delete rejects absolute returnUrl", async () => {
-    const memory = await repository.create({ content: "Test." });
+    const memory = await memoryService.create({ content: "Test." });
 
     const response = await fetch(`${baseUrl}/memories/${memory.id}/delete`, {
       method: "POST",

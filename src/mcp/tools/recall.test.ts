@@ -3,35 +3,43 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
-  CreateMemoryInput,
+  CreateMemoryEntityInput,
   DeleteMemoryInput,
   ListMemoriesInput,
-  MemoryApi,
-  MemoryPage,
-  MemoryRecord,
-  MemorySearchResult,
+  MemoryEntity,
+  MemoryEntityPage,
+  MemoryRepository,
+  MemorySearchEntity,
   SearchMemoryInput,
-  UpdateMemoryInput,
+  UpdateMemoryEntityInput,
 } from "../../memory.ts";
 import { toNormalizedScore } from "../../memory.ts";
 import { MemoryService, RECALL_CANDIDATE_LIMIT_MULTIPLIER } from "../../memory-service.ts";
 import { registerRecallTool } from "./recall.ts";
 
-class RecallOnlyRepository implements MemoryApi {
+class RecallOnlyRepository implements MemoryRepository {
   public searchQuery: SearchMemoryInput | undefined;
 
-  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
+  async create(input: CreateMemoryEntityInput): Promise<MemoryEntity> {
     const now = new Date();
-    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
+    return {
+      id: "memory-1",
+      content: input.content,
+      embedding: input.embedding,
+      workspace: input.workspace,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
 
-  async search(query: SearchMemoryInput): Promise<MemorySearchResult[]> {
+  async search(query: SearchMemoryInput): Promise<MemorySearchEntity[]> {
     this.searchQuery = query;
 
     return [
       {
         id: "memory-1",
         content: "Use FTS5 for recall and ranking.",
+        embedding: [0.1, 0.2, 0.3],
         score: toNormalizedScore(0.9),
         workspace: "/repo-a",
         createdAt: new Date("2026-03-07T10:00:00.000Z"),
@@ -40,7 +48,7 @@ class RecallOnlyRepository implements MemoryApi {
     ];
   }
 
-  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
+  async update(_input: UpdateMemoryEntityInput): Promise<MemoryEntity> {
     throw new Error("Not implemented");
   }
 
@@ -48,11 +56,11 @@ class RecallOnlyRepository implements MemoryApi {
     throw new Error("Not implemented");
   }
 
-  async get(_id: string): Promise<MemoryRecord | undefined> {
+  async get(_id: string): Promise<MemoryEntity | undefined> {
     return undefined;
   }
 
-  async list(_input: ListMemoriesInput): Promise<MemoryPage> {
+  async list(_input: ListMemoriesInput): Promise<MemoryEntityPage> {
     return { items: [], hasMore: false };
   }
 
@@ -68,7 +76,11 @@ describe("registerRecallTool", () => {
 
   beforeEach(async () => {
     repository = new RecallOnlyRepository();
-    const memoryService = new MemoryService(repository);
+    const memoryService = new MemoryService(repository, {
+      async createVector() {
+        return [0.1, 0.2, 0.3];
+      },
+    });
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",

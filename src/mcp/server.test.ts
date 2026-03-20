@@ -2,30 +2,37 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type {
-  CreateMemoryInput,
+  CreateMemoryEntityInput,
   DeleteMemoryInput,
   ListMemoriesInput,
-  MemoryApi,
+  MemoryEntity,
   MemoryPage,
-  MemoryRecord,
-  MemorySearchResult,
+  MemoryRepository,
+  MemorySearchEntity,
   SearchMemoryInput,
-  UpdateMemoryInput,
+  UpdateMemoryEntityInput,
 } from "../memory.ts";
 import { MemoryService } from "../memory-service.ts";
 import { createMcpServer } from "./server.ts";
 
-class FakeMemoryRepository implements MemoryApi {
-  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
+class FakeMemoryRepository implements MemoryRepository {
+  async create(input: CreateMemoryEntityInput): Promise<MemoryEntity> {
     const now = new Date();
-    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
+    return {
+      id: "memory-1",
+      content: input.content,
+      embedding: input.embedding,
+      workspace: input.workspace,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
 
-  async search(_query: SearchMemoryInput): Promise<MemorySearchResult[]> {
+  async search(_query: SearchMemoryInput): Promise<MemorySearchEntity[]> {
     return [];
   }
 
-  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
+  async update(_input: UpdateMemoryEntityInput): Promise<MemoryEntity> {
     throw new Error("Not implemented");
   }
 
@@ -33,11 +40,11 @@ class FakeMemoryRepository implements MemoryApi {
     throw new Error("Not implemented");
   }
 
-  async get(_id: string): Promise<MemoryRecord | undefined> {
+  async get(_id: string): Promise<MemoryEntity | undefined> {
     return undefined;
   }
 
-  async list(_input: ListMemoriesInput): Promise<MemoryPage> {
+  async list(_input: ListMemoriesInput): Promise<MemoryPage & { items: MemoryEntity[] }> {
     return { items: [], hasMore: false };
   }
 
@@ -51,7 +58,14 @@ describe("createMcpServer", () => {
   let client: Client;
 
   beforeEach(async () => {
-    server = createMcpServer(new MemoryService(new FakeMemoryRepository()), "1.0.0");
+    server = createMcpServer(
+      new MemoryService(new FakeMemoryRepository(), {
+        async createVector() {
+          return [0.1, 0.2, 0.3];
+        },
+      }),
+      "1.0.0",
+    );
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
