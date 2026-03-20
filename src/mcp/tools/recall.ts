@@ -31,7 +31,8 @@ const recallInputSchema = {
 function toMemoryXml(r: MemorySearchResult): string {
   const workspace = r.workspace ? ` workspace="${escapeXml(r.workspace)}"` : "";
   const content = escapeXml(r.content);
-  return `<memory id="${r.id}" score="${r.score.toFixed(3)}"${workspace} updated_at="${r.updatedAt.toISOString()}">\n${content}\n</memory>`;
+  const score = Number(r.score.toFixed(3)).toString();
+  return `<memory id="${r.id}" score="${score}"${workspace} updated_at="${r.updatedAt.toISOString()}">\n${content}\n</memory>`;
 }
 
 export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "search">): void {
