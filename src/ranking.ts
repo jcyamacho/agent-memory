@@ -3,22 +3,21 @@ import type { EmbeddingVector } from "./embedding/types.ts";
 import type { MemorySearchEntity } from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 
-const RETRIEVAL_SCORE_WEIGHT = 8;
-const EMBEDDING_SIMILARITY_WEIGHT = 5;
-const WORKSPACE_MATCH_WEIGHT = 4;
-const RECENCY_WEIGHT = 2;
+const RETRIEVAL_SCORE_WEIGHT = 9;
+const EMBEDDING_SIMILARITY_WEIGHT = 4;
+const WORKSPACE_MATCH_WEIGHT = 5;
+const RECENCY_WEIGHT = 1;
 const MAX_COMPOSITE_SCORE =
   RETRIEVAL_SCORE_WEIGHT + EMBEDDING_SIMILARITY_WEIGHT + WORKSPACE_MATCH_WEIGHT + RECENCY_WEIGHT;
 
 const GLOBAL_WORKSPACE_SCORE = 0.5;
-const SIBLING_WORKSPACE_SCORE = 0.25;
 
 export function rerankSearchResults(
   results: MemorySearchEntity[],
   workspace: string | undefined,
   queryEmbedding: EmbeddingVector,
 ): MemorySearchEntity[] {
-  if (results.length <= 1) {
+  if (results.length === 0) {
     return results;
   }
 
@@ -73,14 +72,5 @@ function computeWorkspaceScore(memoryWs: string | undefined, queryWs: string | u
   if (normalizedMemoryWs === queryWs) {
     return 1;
   }
-
-  const queryLastSlashIndex = queryWs.lastIndexOf("/");
-  const memoryLastSlashIndex = normalizedMemoryWs.lastIndexOf("/");
-  if (queryLastSlashIndex <= 0 || memoryLastSlashIndex <= 0) {
-    return 0;
-  }
-
-  const queryParent = queryWs.slice(0, queryLastSlashIndex);
-  const memoryParent = normalizedMemoryWs.slice(0, memoryLastSlashIndex);
-  return memoryParent === queryParent ? SIBLING_WORKSPACE_SCORE : 0;
+  return 0;
 }

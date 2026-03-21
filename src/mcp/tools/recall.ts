@@ -9,7 +9,7 @@ const recallInputSchema = {
     .array(z.string())
     .min(1)
     .describe(
-      "Pass 2-5 short anchor-heavy terms or exact phrases as separate entries. Prefer identifiers, commands, file paths, package names, and conventions likely to appear verbatim. Avoid vague words, full questions, and repeating the workspace name.",
+      "2-5 short anchor-heavy terms or exact phrases. Prefer identifiers, commands, file paths, and exact wording likely to appear in the memory.",
     ),
   limit: z
     .number()
@@ -21,9 +21,7 @@ const recallInputSchema = {
   workspace: z
     .string()
     .optional()
-    .describe(
-      "Pass the current working directory to prefer memories from the active project. Git worktree paths are normalized to the main repo root for matching.",
-    ),
+    .describe("Current working directory for project-scoped recall. Omit for cross-project recall."),
   updated_after: z.string().optional().describe("Only return memories updated on or after this ISO 8601 timestamp."),
   updated_before: z.string().optional().describe("Only return memories updated on or before this ISO 8601 timestamp."),
 };
@@ -45,7 +43,7 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
         openWorldHint: false,
       },
       description:
-        "Find memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and `workspace` when available. Returns `<memories>...</memories>` or a no-match hint.",
+        "Retrieve memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and `workspace` when available. Results reflect the queried workspace context when applicable. Returns `<memories>...</memories>` or a no-match hint.",
       inputSchema: recallInputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {

@@ -213,6 +213,8 @@ describe("registerRecallTool", () => {
     expect(workspaceResolver.calls).toContain("  /worktrees/feature  ");
     const text = (response.content as { type: string; text: string }[])[0]?.text ?? "";
     expect(text.indexOf('id="canonical"')).toBeLessThan(text.indexOf('id="other"'));
+    expect(text).toContain('id="canonical" score="0.9" workspace="/worktrees/feature"');
+    expect(text).toContain('id="other" score="0.637" workspace="/other"');
   });
 
   it("returns an MCP validation error for an invalid date", async () => {

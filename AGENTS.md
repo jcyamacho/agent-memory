@@ -47,11 +47,17 @@
   and what must never be stored.
 - Tool descriptions should explain what the tool does, when to use it, and the
   main boundary versus neighboring tools. Keep output-format notes brief.
+- Tool descriptions should not explain internal mechanisms unless they change
+  the caller-visible contract. Prefer describing what the caller should expect
+  from the response rather than how the server implements it.
 - Parameter descriptions should describe the expected value shape and
   constraints only. Do not restate whole-tool policy there.
 - Prefer concrete, operational wording over implementation jargon. Explain user
   outcomes, not internals, unless the internal detail materially changes tool
   use.
+- Tool descriptions should define the external contract, not the internal
+  implementation. Keep internal details out of model-facing instructions unless
+  they are required to use the tool correctly.
 - Keep tools focused and atomic. If a description needs many branches or modes,
   the tool boundary is probably too broad.
 - Use strong schemas and concise descriptions together. The schema should carry

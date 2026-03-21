@@ -303,9 +303,11 @@ describe("MemoryService", () => {
 
     expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
     expect(results[0]?.id).toBe("canonical-workspace");
+    expect(results[0]?.workspace).toBe("/worktrees/feature");
+    expect(results[1]?.workspace).toBe("/other");
   });
 
-  it("ranks exact, global, sibling, and unrelated workspaces in that order when retrieval is tied", async () => {
+  it("ranks exact and global workspaces above all other scoped workspaces when retrieval is tied", async () => {
     const repository = new FakeMemoryRepository();
     repository.searchResults = [
       createSearchResult("unrelated", { workspace: "/x/y/z" }),
@@ -322,20 +324,24 @@ describe("MemoryService", () => {
       workspace: "/a/b/c",
     });
 
-    expect(results.map((result) => result.id)).toEqual(["exact", "global", "sibling", "unrelated", "child"]);
+    expect(results.map((result) => result.id)).toEqual(["exact", "global", "unrelated", "sibling", "child"]);
   });
 
-  it("returns a single result unchanged", async () => {
+  it("reranks a single result so the score is not a raw retrieval 1.0", async () => {
     const repository = new FakeMemoryRepository();
+    repository.searchResults = [
+      createSearchResult("only-result", { score: toNormalizedScore(1), workspace: "/other" }),
+    ];
     const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: ["WAL"],
       limit: 5,
+      workspace: DEFAULT_WORKSPACE,
     });
 
     expect(results).toHaveLength(1);
-    expect(results[0]?.score).toBe(repository.searchResults[0]?.score);
+    expect(results[0]?.score).toBeLessThan(1);
   });
 
   it("searches without workspace", async () => {
@@ -433,7 +439,7 @@ describe("MemoryService", () => {
     expect(results[0]?.id).toBe("global-memory");
   });
 
-  it("ranks sibling repos above unrelated repos when other signals are equal", async () => {
+  it("does not give sibling repos a workspace bonus", async () => {
     const repository = new FakeMemoryRepository();
     repository.searchResults = [
       createSearchResult("unrelated", { workspace: "/x/y/z" }),
@@ -447,7 +453,7 @@ describe("MemoryService", () => {
       workspace: DEFAULT_WORKSPACE,
     });
 
-    expect(results[0]?.id).toBe("sibling");
+    expect(results.map((result) => result.id)).toEqual(["unrelated", "sibling"]);
   });
 
   it("does not give parent-child paths a workspace bonus", async () => {

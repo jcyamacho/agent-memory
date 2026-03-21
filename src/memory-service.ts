@@ -99,6 +99,7 @@ export class MemoryService implements MemoryApi {
     }
 
     const requestedLimit = normalizeLimit(input.limit);
+    const queryWorkspace = normalizeOptionalString(input.workspace);
     const workspace = await this.workspaceResolver.resolve(input.workspace);
     const normalizedQuery: SearchMemoryInput = {
       terms,
@@ -112,7 +113,9 @@ export class MemoryService implements MemoryApi {
       this.embeddingService.createVector(terms.join(" ")),
     ]);
 
-    return rerankSearchResults(results, workspace, queryEmbedding).slice(0, requestedLimit).map(toPublicSearchResult);
+    return rerankSearchResults(results, workspace, queryEmbedding)
+      .slice(0, requestedLimit)
+      .map((result) => toPublicSearchResult(remapSearchResultWorkspace(result, workspace, queryWorkspace)));
   }
 }
 
@@ -171,4 +174,24 @@ function normalizeListLimit(value: number | undefined): number {
 function normalizeTerms(terms: string[]): string[] {
   const normalizedTerms = terms.map((term) => term.trim()).filter(Boolean);
   return [...new Set(normalizedTerms)];
+}
+
+function normalizeOptionalString(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function remapSearchResultWorkspace(
+  result: MemorySearchEntity,
+  canonicalWorkspace: string | undefined,
+  queryWorkspace: string | undefined,
+): MemorySearchEntity {
+  if (!queryWorkspace || !canonicalWorkspace || result.workspace !== canonicalWorkspace) {
+    return result;
+  }
+
+  return {
+    ...result,
+    workspace: queryWorkspace,
+  };
 }
