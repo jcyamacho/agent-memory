@@ -9,7 +9,7 @@ const recallInputSchema = {
     .array(z.string())
     .min(1)
     .describe(
-      "Search terms for lexical memory lookup. Pass 2-5 short anchor-heavy terms or exact phrases as separate entries. Prefer identifiers, commands, file paths, package names, and conventions likely to appear verbatim in the memory. Avoid vague words, full sentences, and repeating the workspace name. If recall misses, retry once with overlapping alternate terms.",
+      "Pass 2-5 short anchor-heavy terms or exact phrases as separate entries. Prefer identifiers, commands, file paths, package names, and conventions likely to appear verbatim. Avoid vague words, full questions, and repeating the workspace name.",
     ),
   limit: z
     .number()
@@ -22,10 +22,10 @@ const recallInputSchema = {
     .string()
     .optional()
     .describe(
-      "Pass the current working directory. Git worktree paths are normalized to the main repo root for matching. This strongly boosts memories from the active project while still allowing global and cross-workspace matches.",
+      "Pass the current working directory to prefer memories from the active project. Git worktree paths are normalized to the main repo root for matching.",
     ),
-  updated_after: z.string().optional().describe("Only return memories updated at or after this ISO 8601 timestamp."),
-  updated_before: z.string().optional().describe("Only return memories updated at or before this ISO 8601 timestamp."),
+  updated_after: z.string().optional().describe("Only return memories updated on or after this ISO 8601 timestamp."),
+  updated_before: z.string().optional().describe("Only return memories updated on or before this ISO 8601 timestamp."),
 };
 
 function toMemoryXml(r: MemorySearchResult): string {
@@ -39,8 +39,13 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
   server.registerTool(
     "recall",
     {
+      annotations: {
+        title: "Recall",
+        readOnlyHint: true,
+        openWorldHint: false,
+      },
       description:
-        "Retrieve relevant memories for the current task. Use at conversation start and before design choices, conventions, or edge cases. Query with 2-5 short anchor-heavy terms or exact phrases, not questions or full sentences. `recall` is lexical-first; semantic reranking only reorders lexical matches. If it misses, retry once with overlapping alternate terms. Pass workspace; git worktree paths are normalized to the main repo root for matching. Returns `<memories>...</memories>` or a no-match hint.",
+        "Find memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and `workspace` when available. Returns `<memories>...</memories>` or a no-match hint.",
       inputSchema: recallInputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {
@@ -55,7 +60,7 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
 
         const text =
           results.length === 0
-            ? "No matching memories found. Retry once with 1-3 alternate overlapping terms or an exact phrase likely to appear in the memory text. Recall is lexical-first, so semantic reranking cannot rescue a query with no wording overlap."
+            ? "No matching memories found. Retry once with 1-3 overlapping alternate terms or an exact identifier, command, file path, or phrase likely to appear in the memory."
             : `<memories>\n${results.map(toMemoryXml).join("\n")}\n</memories>`;
 
         return {

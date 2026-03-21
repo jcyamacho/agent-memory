@@ -3,15 +3,15 @@
 Persistent memory for MCP-powered coding agents.
 
 `agent-memory` is a stdio MCP server that gives your LLM durable memory backed
-by SQLite. It exposes four tools:
+by SQLite. It helps your agent remember preferences, project context, and prior
+decisions across sessions.
+
+It exposes four tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
 - `recall` -> retrieve the most relevant memories later
 - `revise` -> update an existing memory when it becomes outdated
 - `forget` -> delete a memory that is no longer relevant
-
-Use it when your agent should remember preferences, project facts, and prior
-decisions across sessions.
 
 ## Quick Start
 
@@ -27,52 +27,56 @@ Codex CLI:
 codex mcp add memory -- npx -y @jcyamacho/agent-memory
 ```
 
-Optional LLM instructions to reinforce the MCP's built-in guidance:
+OpenCode:
 
-```text
-Use `memory_recall` at conversation start and before design choices,
-conventions, or edge cases. Query with 2-5 short anchor-heavy terms or exact
-phrases, not
-questions or sentences. `memory_recall` is lexical-first; if it misses, retry once
-with overlapping alternate terms. Use `memory_remember` for one durable fact, then
-use `memory_revise` instead of duplicates and `memory_forget` for wrong or obsolete
-memories. Always pass workspace unless the memory is truly global. Git worktree
-paths are canonicalized to the main repo root on save and recall.
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "memory": {
+      "type": "local",
+      "command": ["npx", "-y", "@jcyamacho/agent-memory"]
+    }
+  }
+}
 ```
 
-## What It Stores
+## Optional LLM Instructions
 
-This MCP is useful for context that should survive across turns and sessions:
+Optional LLM instructions to reinforce the MCP's built-in guidance:
 
-- User preferences like response style, formatting, and workflow habits
-- Project facts like paths, architecture choices, and conventions
-- Important decisions and constraints that should not be rediscovered
-- Project-scoped notes that still matter later
+```md
+## Agent Memory
+
+- Use `memory_recall` at conversation start and before design choices,
+  conventions, or edge cases.
+- Query `memory_recall` with 2-5 short anchor-heavy terms or exact phrases,
+  not full questions or sentences.
+- Pass `workspace` for project-scoped memory. Omit it only for truly global memories.
+- Use `memory_remember` to save one durable fact when the user states a stable
+  preference, correction, or reusable project decision.
+- If the fact already exists, use `memory_revise` instead of creating a duplicate.
+- Use `memory_forget` to remove a wrong or obsolete memory.
+- Do not store secrets or temporary task state in memory.
+```
 
 ## Web UI
 
 Browse, edit, and delete memories in a local web interface:
 
 ```bash
-npx -y @jcyamacho/agent-memory --ui
+npx -y @jcyamacho/agent-memory@latest --ui
 ```
 
 Opens at `http://localhost:6580`. Use `--port` to change:
 
 ```bash
-npx -y @jcyamacho/agent-memory --ui --port 9090
+npx -y @jcyamacho/agent-memory@latest --ui --port 9090
 ```
 
 The web UI uses the same database as the MCP server.
 
-## Tools
-
-- `remember` saves durable facts, preferences, decisions, and project context.
-- `recall` retrieves the most relevant saved memories.
-- `revise` updates an existing memory when it becomes outdated.
-- `forget` deletes a memory that is no longer relevant.
-
-## How Ranking Works
+## How Recall Finds Memories
 
 `recall` uses a multi-signal ranking system to surface the most relevant
 memories:
@@ -99,7 +103,9 @@ When you save a memory from a git worktree, `agent-memory` stores the main repo
 root as the workspace. `recall` applies the same normalization to incoming
 workspace queries so linked worktrees still match repo-scoped memories exactly.
 
-## Database location
+## Configuration
+
+### Database Location
 
 By default, the SQLite database is created at:
 
@@ -119,7 +125,7 @@ Set `AGENT_MEMORY_DB_PATH` when you want to:
 - share a memory DB across multiple clients
 - store the DB somewhere easier to back up or inspect
 
-## Model cache location
+### Model Cache Location
 
 By default, downloaded embedding model files are cached at:
 
@@ -141,36 +147,6 @@ Set `AGENT_MEMORY_MODELS_CACHE_PATH` when you want to:
 
 Schema changes are migrated automatically, including workspace normalization for
 existing git worktree memories when the original path can still be resolved.
-
-## Development
-
-For working on the project itself or running from source. Requires Bun and
-Node.js.
-
-```bash
-bun install
-bun run build
-```
-
-To use a local build as your MCP server:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/agent-memory/dist/index.js"
-      ]
-    }
-  }
-}
-```
-
-```bash
-bun lint
-bun test
-```
 
 ## License
 

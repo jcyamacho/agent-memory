@@ -4,15 +4,21 @@ import type { MemoryApi } from "../../memory.ts";
 import { toMcpError } from "./shared.ts";
 
 const forgetInputSchema = {
-  id: z.string().describe("The memory id to delete. Use an id returned by `recall`."),
+  id: z.string().describe("Memory id to delete. Use an id returned by `recall`."),
 };
 
 export function registerForgetTool(server: McpServer, memory: Pick<MemoryApi, "delete">): void {
   server.registerTool(
     "forget",
     {
+      annotations: {
+        title: "Forget",
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       description:
-        'Permanently delete a wrong or obsolete memory. Use `revise` instead when the fact still exists and only needs correction. Returns `<memory id="..." deleted="true" />`.',
+        'Delete a memory that is wrong or obsolete. Use after `recall` when you have the memory id. Use `revise` instead if the fact should remain with corrected wording. Returns `<memory id="..." deleted="true" />`.',
       inputSchema: forgetInputSchema,
     },
     async ({ id }) => {
