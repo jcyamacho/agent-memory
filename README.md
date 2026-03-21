@@ -27,69 +27,17 @@ Codex CLI:
 codex mcp add memory -- npx -y @jcyamacho/agent-memory
 ```
 
-Example MCP server config:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@jcyamacho/agent-memory"
-      ]
-    }
-  }
-}
-```
-
-With a custom database path:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@jcyamacho/agent-memory"
-      ],
-      "env": {
-        "AGENT_MEMORY_DB_PATH": "/absolute/path/to/memory.db"
-      }
-    }
-  }
-}
-```
-
-With a custom model cache path:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@jcyamacho/agent-memory"
-      ],
-      "env": {
-        "AGENT_MEMORY_MODELS_CACHE_PATH": "/absolute/path/to/models"
-      }
-    }
-  }
-}
-```
-
 Optional LLM instructions to reinforce the MCP's built-in guidance:
 
 ```text
-Use `recall` at conversation start and before design choices, conventions, or
-edge cases. Query with 2-5 short anchor-heavy terms or exact phrases, not
-questions or sentences. `recall` is lexical-first; if it misses, retry once
-with overlapping alternate terms. Use `remember` for one durable fact, then
-use `revise` instead of duplicates and `forget` for wrong or obsolete
-memories. Always pass workspace unless the memory is truly global.
+Use `memory_recall` at conversation start and before design choices,
+conventions, or edge cases. Query with 2-5 short anchor-heavy terms or exact
+phrases, not
+questions or sentences. `memory_recall` is lexical-first; if it misses, retry once
+with overlapping alternate terms. Use `memory_remember` for one durable fact, then
+use `memory_revise` instead of duplicates and `memory_forget` for wrong or obsolete
+memories. Always pass workspace unless the memory is truly global. Git worktree
+paths are canonicalized to the main repo root on save and recall.
 ```
 
 ## What It Stores
@@ -147,6 +95,10 @@ If you omit `workspace`, recall still uses text relevance, embedding similarity,
 and recency. For best results, pass `workspace` whenever you have one. Save
 memories without a workspace only when they apply across all projects.
 
+When you save a memory from a git worktree, `agent-memory` stores the main repo
+root as the workspace. `recall` applies the same normalization to incoming
+workspace queries so linked worktrees still match repo-scoped memories exactly.
+
 ## Database location
 
 By default, the SQLite database is created at:
@@ -187,8 +139,8 @@ Set `AGENT_MEMORY_MODELS_CACHE_PATH` when you want to:
 - share the model cache across reinstalls or multiple clients
 - store model downloads somewhere easier to inspect or manage
 
-Beta note: schema changes are not migrated. If you are upgrading from an older
-beta, delete the existing memory DB and let the server create a new one.
+Schema changes are migrated automatically, including workspace normalization for
+existing git worktree memories when the original path can still be resolved.
 
 ## Development
 

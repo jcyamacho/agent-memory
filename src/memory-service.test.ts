@@ -13,6 +13,7 @@ import type {
 } from "./memory.ts";
 import { toNormalizedScore } from "./memory.ts";
 import { MemoryService, RECALL_CANDIDATE_LIMIT_MULTIPLIER } from "./memory-service.ts";
+import { createPassthroughWorkspaceResolver, type WorkspaceResolver } from "./workspace-resolver.ts";
 
 const DEFAULT_WORKSPACE = "/tmp/project";
 const DEFAULT_TIMESTAMP = new Date("2026-03-01T00:00:00.000Z");
@@ -130,11 +131,39 @@ class FakeEmbeddingService implements EmbeddingGenerator {
   }
 }
 
+class FakeWorkspaceResolver implements WorkspaceResolver {
+  public calls: Array<string | undefined> = [];
+
+  constructor(
+    private readonly resolved = new Map<string, string>(),
+    private readonly passthrough = true,
+  ) {}
+
+  async resolve(workspace?: string): Promise<string | undefined> {
+    this.calls.push(workspace);
+
+    const trimmed = workspace?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    return this.resolved.get(trimmed) ?? (this.passthrough ? trimmed : undefined);
+  }
+}
+
+function createService(
+  repository: MemoryRepository,
+  embeddingService: EmbeddingGenerator,
+  workspaceResolver?: WorkspaceResolver,
+): MemoryService {
+  return new MemoryService(repository, embeddingService, workspaceResolver ?? createPassthroughWorkspaceResolver());
+}
+
 describe("MemoryService", () => {
   it("creates append-only memory with optional metadata", async () => {
     const repository = new FakeMemoryRepository();
     const embeddingService = new FakeEmbeddingService();
-    const service = new MemoryService(repository, embeddingService);
+    const service = createService(repository, embeddingService);
 
     const result = await service.create({
       content: "Use a global SQLite database shared across tools.",
@@ -153,9 +182,40 @@ describe("MemoryService", () => {
     expect(result.createdAt.getTime()).toBe(result.updatedAt.getTime());
   });
 
+  it("stores the canonical workspace returned by the resolver on create", async () => {
+    const repository = new FakeMemoryRepository();
+    const embeddingService = new FakeEmbeddingService();
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, embeddingService, workspaceResolver);
+
+    const result = await service.create({
+      content: "Keep the shared repo root as the workspace key.",
+      workspace: "  /worktrees/feature  ",
+    });
+
+    expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
+    expect(repository.created[0]?.workspace).toBe("/repo");
+    expect(result.workspace).toBe("/repo");
+  });
+
+  it("preserves the given workspace on create when the resolver falls back", async () => {
+    const repository = new FakeMemoryRepository();
+    const embeddingService = new FakeEmbeddingService();
+    const workspaceResolver = new FakeWorkspaceResolver(new Map(), true);
+    const service = createService(repository, embeddingService, workspaceResolver);
+
+    const result = await service.create({
+      content: "Keep non-git workspaces as provided.",
+      workspace: "  /not-a-repo  ",
+    });
+
+    expect(repository.created[0]?.workspace).toBe("/not-a-repo");
+    expect(result.workspace).toBe("/not-a-repo");
+  });
+
   it("passes workspace and date filters to the repository", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: [" shared ", "sqlite", "decisions"],
@@ -178,7 +238,7 @@ describe("MemoryService", () => {
   it("creates a query embedding from normalized terms for semantic reranking", async () => {
     const repository = new FakeMemoryRepository();
     const embeddingService = new FakeEmbeddingService();
-    const service = new MemoryService(repository, embeddingService);
+    const service = createService(repository, embeddingService);
 
     await service.search({
       terms: [" shared ", "sqlite", "shared"],
@@ -198,7 +258,7 @@ describe("MemoryService", () => {
         score: toNormalizedScore(0.3),
       }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -215,7 +275,7 @@ describe("MemoryService", () => {
       createSearchResult("other-workspace", { workspace: "/other" }),
       createSearchResult("preferred-workspace"),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -224,6 +284,25 @@ describe("MemoryService", () => {
     });
 
     expect(results[0]?.id).toBe("preferred-workspace");
+  });
+
+  it("canonicalizes query workspace before reranking search results", async () => {
+    const repository = new FakeMemoryRepository();
+    repository.searchResults = [
+      createSearchResult("other-workspace", { workspace: "/other" }),
+      createSearchResult("canonical-workspace", { workspace: "/repo" }),
+    ];
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, new FakeEmbeddingService(), workspaceResolver);
+
+    const results = await service.search({
+      terms: DEFAULT_SHARED_SQLITE_TERMS,
+      limit: 2,
+      workspace: "  /worktrees/feature  ",
+    });
+
+    expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
+    expect(results[0]?.id).toBe("canonical-workspace");
   });
 
   it("ranks exact, global, sibling, and unrelated workspaces in that order when retrieval is tied", async () => {
@@ -235,7 +314,7 @@ describe("MemoryService", () => {
       createSearchResult("child", { workspace: "/a/b/c/d" }),
       createSearchResult("exact", { workspace: "/a/b/c" }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -248,7 +327,7 @@ describe("MemoryService", () => {
 
   it("returns a single result unchanged", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: ["WAL"],
@@ -261,7 +340,7 @@ describe("MemoryService", () => {
 
   it("searches without workspace", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: ["WAL"],
@@ -278,7 +357,7 @@ describe("MemoryService", () => {
       createSearchResult("scoped-memory"),
       createSearchResult("global-memory", { workspace: undefined }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -295,7 +374,7 @@ describe("MemoryService", () => {
       createSearchResult("b", { content: "second" }),
       createSearchResult("c", { content: "third", score: toNormalizedScore(0.5) }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: ["test"],
@@ -311,7 +390,7 @@ describe("MemoryService", () => {
       createSearchResult("a", { content: "first", score: toNormalizedScore(1) }),
       createSearchResult("b", { content: "second", score: toNormalizedScore(0), workspace: "/other" }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: ["test"],
@@ -327,7 +406,7 @@ describe("MemoryService", () => {
 
   it("deduplicates search terms", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     await service.search({
       terms: ["sqlite", "sqlite", "WAL"],
@@ -343,7 +422,7 @@ describe("MemoryService", () => {
       createSearchResult("wrong-workspace", { workspace: "/other" }),
       createSearchResult("global-memory", { workspace: undefined }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -360,7 +439,7 @@ describe("MemoryService", () => {
       createSearchResult("unrelated", { workspace: "/x/y/z" }),
       createSearchResult("sibling", { workspace: "/tmp/other-project" }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -377,7 +456,7 @@ describe("MemoryService", () => {
       createSearchResult("child", { workspace: "/tmp/project/nested" }),
       createSearchResult("unrelated", { workspace: "/x/y/z" }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -394,7 +473,7 @@ describe("MemoryService", () => {
       createSearchResult("global-memory", { workspace: undefined }),
       createSearchResult("matching-workspace"),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -411,7 +490,7 @@ describe("MemoryService", () => {
       createSearchResult("older"),
       createSearchResult("newer", { updatedAt: new Date("2026-03-08T00:00:00.000Z") }),
     ];
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const results = await service.search({
       terms: DEFAULT_SHARED_SQLITE_TERMS,
@@ -430,7 +509,7 @@ describe("MemoryService", () => {
     ];
     const embeddingService = new FakeEmbeddingService();
     embeddingService.vectors.set("shared sqlite", [1, 0, 0]);
-    const service = new MemoryService(repository, embeddingService);
+    const service = createService(repository, embeddingService);
 
     const results = await service.search({
       terms: ["shared", "sqlite"],
@@ -443,7 +522,7 @@ describe("MemoryService", () => {
   it("updates memory content and returns the updated record", async () => {
     const repository = new FakeMemoryRepository();
     const embeddingService = new FakeEmbeddingService();
-    const service = new MemoryService(repository, embeddingService);
+    const service = createService(repository, embeddingService);
 
     const result = await service.update({ id: "memory-1", content: "Updated content." });
 
@@ -458,7 +537,7 @@ describe("MemoryService", () => {
   it("trims content before delegating update to the repository", async () => {
     const repository = new FakeMemoryRepository();
     const embeddingService = new FakeEmbeddingService();
-    const service = new MemoryService(repository, embeddingService);
+    const service = createService(repository, embeddingService);
 
     const result = await service.update({ id: "memory-1", content: "  trimmed  " });
 
@@ -469,22 +548,22 @@ describe("MemoryService", () => {
 
   it("throws ValidationError when update content is empty", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
-    await expect(service.update({ id: "memory-1", content: "   " })).rejects.toThrow(ValidationError);
+    expect(service.update({ id: "memory-1", content: "   " })).rejects.toThrow(ValidationError);
   });
 
   it("propagates NotFoundError from repository on update", async () => {
     const repository = new FakeMemoryRepository();
     repository.updateError = new NotFoundError("Memory not found.");
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
-    await expect(service.update({ id: "missing", content: "x" })).rejects.toThrow(NotFoundError);
+    expect(service.update({ id: "missing", content: "x" })).rejects.toThrow(NotFoundError);
   });
 
   it("deletes a memory successfully", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     await service.delete({ id: "memory-1" });
 
@@ -493,22 +572,22 @@ describe("MemoryService", () => {
 
   it("throws ValidationError when delete id is empty", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
-    await expect(service.delete({ id: "   " })).rejects.toThrow(ValidationError);
+    expect(service.delete({ id: "   " })).rejects.toThrow(ValidationError);
   });
 
   it("propagates NotFoundError from repository on delete", async () => {
     const repository = new FakeMemoryRepository();
     repository.deleteError = new NotFoundError("Memory not found.");
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
-    await expect(service.delete({ id: "memory-1" })).rejects.toThrow(NotFoundError);
+    expect(service.delete({ id: "memory-1" })).rejects.toThrow(NotFoundError);
   });
 
   it("gets a memory by id without exposing the embedding", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const result = await service.get("memory-1");
 
@@ -523,15 +602,17 @@ describe("MemoryService", () => {
 
   it("normalizes list input before delegating to the repository", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, new FakeEmbeddingService(), workspaceResolver);
 
     await service.list({
-      workspace: "  /repo  ",
+      workspace: "  /worktrees/feature  ",
       workspaceIsNull: true,
       offset: -10,
       limit: 999,
     });
 
+    expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
     expect(repository.lastListInput).toEqual({
       workspace: "/repo",
       workspaceIsNull: false,
@@ -542,7 +623,7 @@ describe("MemoryService", () => {
 
   it("defaults list input when values are omitted", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     await service.list({});
 
@@ -556,7 +637,7 @@ describe("MemoryService", () => {
 
   it("lists workspaces", async () => {
     const repository = new FakeMemoryRepository();
-    const service = new MemoryService(repository, new FakeEmbeddingService());
+    const service = createService(repository, new FakeEmbeddingService());
 
     const workspaces = await service.listWorkspaces();
 

@@ -6,10 +6,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CreateMemoryEntityInput, MemoryEntity } from "../memory.ts";
 import { toNormalizedScore } from "../memory.ts";
+import { createPassthroughWorkspaceResolver } from "../workspace-resolver.ts";
 import { initializeMemoryDatabase, type SqliteDatabaseLike, SqliteMemoryRepository } from "./index.ts";
+import { createMemoryMigrations } from "./migrations/index.ts";
 
 const DEFAULT_EMBEDDING = [0.25, 0.5, 0.75];
 const UPDATED_EMBEDDING = [0.5, 0.25, 0.125];
+
+function createTestMigrations() {
+  return createMemoryMigrations({
+    embeddingService: {
+      async createVector(text: string) {
+        return [text.length, 0.5, 0.25];
+      },
+    },
+    workspaceResolver: createPassthroughWorkspaceResolver(),
+  });
+}
 
 describe("SqliteMemoryRepository", () => {
   let directory: string;
@@ -42,7 +55,7 @@ describe("SqliteMemoryRepository", () => {
     const databasePath = join(directory, "memory.db");
 
     database = new Database(databasePath);
-    await initializeMemoryDatabase(database);
+    await initializeMemoryDatabase(database, createTestMigrations());
     repository = new SqliteMemoryRepository(database);
   });
 

@@ -6,12 +6,14 @@ import { createMcpServer } from "./mcp/server.ts";
 import { MemoryService } from "./memory-service.ts";
 import { openMemoryDatabase, SqliteMemoryRepository } from "./sqlite/index.ts";
 import { startWebServer } from "./ui/server.tsx";
+import { createGitWorkspaceResolver } from "./workspace-resolver.ts";
 
 const config = resolveConfig();
 const embeddingService = new EmbeddingService({ modelsCachePath: config.modelsCachePath });
-const database = await openMemoryDatabase(config.databasePath, { embeddingService });
+const workspaceResolver = createGitWorkspaceResolver();
+const database = await openMemoryDatabase(config.databasePath, { embeddingService, workspaceResolver });
 const repository = new SqliteMemoryRepository(database);
-const memoryService = new MemoryService(repository, embeddingService);
+const memoryService = new MemoryService(repository, embeddingService, workspaceResolver);
 
 if (config.uiMode) {
   const server = startWebServer(memoryService, { port: config.uiPort });

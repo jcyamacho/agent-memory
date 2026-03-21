@@ -7,7 +7,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryService } from "../memory-service.ts";
 import { initializeMemoryDatabase, type SqliteDatabaseLike, SqliteMemoryRepository } from "../sqlite/index.ts";
+import { createMemoryMigrations } from "../sqlite/migrations/index.ts";
+import { createPassthroughWorkspaceResolver } from "../workspace-resolver.ts";
 import { startWebServer } from "./server.tsx";
+
+function createTestMigrations() {
+  return createMemoryMigrations({
+    embeddingService: {
+      async createVector(text: string) {
+        return [text.length, 0.5, 0.25];
+      },
+    },
+    workspaceResolver: createPassthroughWorkspaceResolver(),
+  });
+}
 
 describe("Web UI server", () => {
   let directory: string;
@@ -22,13 +35,17 @@ describe("Web UI server", () => {
     const databasePath = join(directory, "memory.db");
 
     database = new Database(databasePath);
-    await initializeMemoryDatabase(database);
+    await initializeMemoryDatabase(database, createTestMigrations());
     repository = new SqliteMemoryRepository(database);
-    memoryService = new MemoryService(repository, {
-      async createVector() {
-        return [0.1, 0.2, 0.3];
+    memoryService = new MemoryService(
+      repository,
+      {
+        async createVector() {
+          return [0.1, 0.2, 0.3];
+        },
       },
-    });
+      createPassthroughWorkspaceResolver(),
+    );
     server = startWebServer(memoryService, { port: 0 });
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : 0;

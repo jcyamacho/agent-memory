@@ -13,6 +13,7 @@ import type {
   UpdateMemoryEntityInput,
 } from "../memory.ts";
 import { MemoryService } from "../memory-service.ts";
+import { createPassthroughWorkspaceResolver } from "../workspace-resolver.ts";
 import { createMcpServer } from "./server.ts";
 
 class FakeMemoryRepository implements MemoryRepository {
@@ -59,11 +60,15 @@ describe("createMcpServer", () => {
 
   beforeEach(async () => {
     server = createMcpServer(
-      new MemoryService(new FakeMemoryRepository(), {
-        async createVector() {
-          return [0.1, 0.2, 0.3];
+      new MemoryService(
+        new FakeMemoryRepository(),
+        {
+          async createVector() {
+            return [0.1, 0.2, 0.3];
+          },
         },
-      }),
+        createPassthroughWorkspaceResolver(),
+      ),
       "1.0.0",
     );
 

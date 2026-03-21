@@ -1,4 +1,3 @@
-import { EmbeddingService } from "../../embedding/service.ts";
 import type { EmbeddingGenerator } from "../../memory.ts";
 import { encodeEmbedding } from "../embedding-codec.ts";
 import {
@@ -14,9 +13,7 @@ interface MemoryEmbeddingRow {
   content: string;
 }
 
-export function createAddMemoryEmbeddingMigration(
-  embeddingService: EmbeddingGenerator = new EmbeddingService(),
-): SqliteMigration {
+export function createAddMemoryEmbeddingMigration(embeddingService: EmbeddingGenerator): SqliteMigration {
   return {
     version: 2,
     async up(database) {
@@ -54,5 +51,3 @@ export function createAddMemoryEmbeddingMigration(
     },
   };
 }
-
-export const addMemoryEmbeddingMigration = createAddMemoryEmbeddingMigration();

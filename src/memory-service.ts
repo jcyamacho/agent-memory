@@ -16,6 +16,7 @@ import type {
   UpdateMemoryInput,
 } from "./memory.ts";
 import { rerankSearchResults } from "./ranking.ts";
+import type { WorkspaceResolver } from "./workspace-resolver.ts";
 
 export const DEFAULT_RECALL_LIMIT = 15;
 export const MAX_RECALL_LIMIT = 50;
@@ -28,6 +29,7 @@ export class MemoryService implements MemoryApi {
   constructor(
     private readonly repository: MemoryRepository,
     private readonly embeddingService: EmbeddingGenerator,
+    private readonly workspaceResolver: WorkspaceResolver,
   ) {}
 
   async create(input: CreateMemoryInput): Promise<MemoryRecord> {
@@ -37,10 +39,12 @@ export class MemoryService implements MemoryApi {
       throw new ValidationError("Memory content is required.");
     }
 
+    const workspace = await this.workspaceResolver.resolve(input.workspace);
+
     const memory = await this.repository.create({
       content,
       embedding: await this.embeddingService.createVector(content),
-      workspace: normalizeOptionalString(input.workspace),
+      workspace,
     });
 
     return toPublicMemoryRecord(memory);
@@ -71,11 +75,11 @@ export class MemoryService implements MemoryApi {
   }
 
   async list(input: ListMemoriesInput): Promise<MemoryPage> {
-    const workspace = normalizeOptionalString(input.workspace);
+    const workspace = await this.workspaceResolver.resolve(input.workspace);
 
     const page = await this.repository.list({
       workspace,
-      workspaceIsNull: workspace ? false : Boolean(input.workspaceIsNull),
+      workspaceIsNull: Boolean(workspace),
       offset: normalizeOffset(input.offset),
       limit: normalizeListLimit(input.limit),
     });
@@ -95,7 +99,7 @@ export class MemoryService implements MemoryApi {
     }
 
     const requestedLimit = normalizeLimit(input.limit);
-    const workspace = normalizeOptionalString(input.workspace);
+    const workspace = await this.workspaceResolver.resolve(input.workspace);
     const normalizedQuery: SearchMemoryInput = {
       terms,
       limit: requestedLimit * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
@@ -162,11 +166,6 @@ function normalizeListLimit(value: number | undefined): number {
   }
 
   return Math.min(Math.max(value, 1), MAX_LIST_LIMIT);
-}
-
-function normalizeOptionalString(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }
 
 function normalizeTerms(terms: string[]): string[] {

@@ -3,7 +3,8 @@ import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { PersistenceError } from "../errors.ts";
 import type { EmbeddingGenerator } from "../memory.ts";
-import { createMemoryMigrations, MEMORY_MIGRATIONS, type SqliteMigration } from "./migrations/index.ts";
+import type { WorkspaceResolver } from "../workspace-resolver.ts";
+import { createMemoryMigrations, type SqliteMigration } from "./migrations/index.ts";
 import type { SqliteDatabaseLike } from "./types.ts";
 
 const PRAGMA_STATEMENTS = [
@@ -19,12 +20,13 @@ export type { SqliteMigration } from "./migrations/index.ts";
 export type { SqliteDatabaseLike, SqlStatement } from "./types.ts";
 
 export interface OpenMemoryDatabaseOptions {
-  embeddingService?: EmbeddingGenerator;
+  embeddingService: EmbeddingGenerator;
+  workspaceResolver: WorkspaceResolver;
 }
 
 export async function openMemoryDatabase(
   databasePath: string,
-  options: OpenMemoryDatabaseOptions = {},
+  options: OpenMemoryDatabaseOptions,
 ): Promise<SqliteDatabase> {
   let database: SqliteDatabase | undefined;
 
@@ -32,7 +34,7 @@ export async function openMemoryDatabase(
     mkdirSync(dirname(databasePath), { recursive: true });
 
     database = new Database(databasePath);
-    await initializeMemoryDatabase(database, createMemoryMigrations(options.embeddingService));
+    await initializeMemoryDatabase(database, createMemoryMigrations(options));
 
     return database;
   } catch (error) {
@@ -50,7 +52,7 @@ export async function openMemoryDatabase(
 
 export async function initializeMemoryDatabase(
   database: SqliteDatabaseLike,
-  migrations: readonly SqliteMigration[] = MEMORY_MIGRATIONS,
+  migrations: readonly SqliteMigration[],
 ): Promise<void> {
   try {
     applyPragmas(database);

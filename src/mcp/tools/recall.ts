@@ -22,7 +22,7 @@ const recallInputSchema = {
     .string()
     .optional()
     .describe(
-      "Pass the current working directory. This strongly boosts memories from the active project while still allowing global and cross-workspace matches.",
+      "Pass the current working directory. Git worktree paths are normalized to the main repo root for matching. This strongly boosts memories from the active project while still allowing global and cross-workspace matches.",
     ),
   updated_after: z.string().optional().describe("Only return memories updated at or after this ISO 8601 timestamp."),
   updated_before: z.string().optional().describe("Only return memories updated at or before this ISO 8601 timestamp."),
@@ -40,7 +40,7 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
     "recall",
     {
       description:
-        "Retrieve relevant memories for the current task. Use at conversation start and before design choices, conventions, or edge cases. Query with 2-5 short anchor-heavy terms or exact phrases, not questions or full sentences. `recall` is lexical-first; semantic reranking only reorders lexical matches. If it misses, retry once with overlapping alternate terms. Pass workspace. Returns `<memories>...</memories>` or a no-match hint.",
+        "Retrieve relevant memories for the current task. Use at conversation start and before design choices, conventions, or edge cases. Query with 2-5 short anchor-heavy terms or exact phrases, not questions or full sentences. `recall` is lexical-first; semantic reranking only reorders lexical matches. If it misses, retry once with overlapping alternate terms. Pass workspace; git worktree paths are normalized to the main repo root for matching. Returns `<memories>...</memories>` or a no-match hint.",
       inputSchema: recallInputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {

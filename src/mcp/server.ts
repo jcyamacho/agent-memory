@@ -14,7 +14,7 @@ const SERVER_INSTRUCTIONS = [
   "Use `remember` for one durable fact when the user states a preference, corrects you, or a reusable project decision becomes clear.",
   "Call `recall` before `remember`; if the fact already exists, use `revise` instead of creating a duplicate.",
   "Use `revise` to correct an existing memory and `forget` to remove a wrong or obsolete one.",
-  "Pass workspace for project-scoped calls. Omit it only for truly global memories.",
+  "Pass workspace for project-scoped calls. Git worktree paths are canonicalized to the main repo root on save and recall. Omit workspace only for truly global memories.",
 ].join(" ");
 
 export function createMcpServer(memory: MemoryApi, version: string): McpServer {

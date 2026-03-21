@@ -12,7 +12,9 @@ const rememberInputSchema = {
   workspace: z
     .string()
     .optional()
-    .describe("Pass the current working directory for project-specific memories. Omit only for truly global memories."),
+    .describe(
+      "Pass the current working directory for project-specific memories. Git worktree paths are saved as the main repo root automatically. Omit only for truly global memories.",
+    ),
 };
 
 export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, "create">): void {
