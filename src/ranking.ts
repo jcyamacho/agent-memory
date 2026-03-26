@@ -21,7 +21,6 @@ export function rerankSearchResults(
     return results;
   }
 
-  const normalizedQueryWs = workspace ? normalizeWorkspacePath(workspace) : undefined;
   const updatedAtTimes = results.map((result) => result.updatedAt.getTime());
   const minUpdatedAt = Math.min(...updatedAtTimes);
   const maxUpdatedAt = Math.max(...updatedAtTimes);
@@ -29,7 +28,7 @@ export function rerankSearchResults(
   return results
     .map((result) => {
       const embeddingSimilarityScore = computeEmbeddingSimilarityScore(result, queryEmbedding);
-      const workspaceScore = computeWorkspaceScore(result.workspace, normalizedQueryWs);
+      const workspaceScore = computeWorkspaceScore(result.workspace, workspace);
       const recencyScore =
         maxUpdatedAt === minUpdatedAt ? 0 : (result.updatedAt.getTime() - minUpdatedAt) / (maxUpdatedAt - minUpdatedAt);
       const combinedScore =
@@ -51,26 +50,12 @@ function computeEmbeddingSimilarityScore(result: MemorySearchEntity, queryEmbedd
   return normalizeCosineSimilarity(compareVectors(result.embedding, queryEmbedding));
 }
 
-function normalizeWorkspacePath(value: string): string {
-  return value.trim().replaceAll("\\", "/").replace(/\/+/g, "/").split("/").filter(Boolean).join("/");
-}
-
 function normalizeCosineSimilarity(value: number): number {
   return (value + 1) / 2;
 }
 
 function computeWorkspaceScore(memoryWs: string | undefined, queryWs: string | undefined): number {
-  if (!queryWs) {
-    return 0;
-  }
-
-  if (!memoryWs) {
-    return GLOBAL_WORKSPACE_SCORE;
-  }
-
-  const normalizedMemoryWs = normalizeWorkspacePath(memoryWs);
-  if (normalizedMemoryWs === queryWs) {
-    return 1;
-  }
-  return 0;
+  if (!queryWs) return 0;
+  if (!memoryWs) return GLOBAL_WORKSPACE_SCORE;
+  return memoryWs === queryWs ? 1 : 0;
 }

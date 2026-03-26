@@ -113,6 +113,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
         whereParams.push(query.updatedBefore.getTime());
       }
 
+      if (query.workspace) {
+        whereClauses.push("(m.workspace = ? OR m.workspace IS NULL)");
+        whereParams.push(query.workspace);
+      }
+
       const params = [...whereParams, limit];
 
       const statement = this.database.prepare(`

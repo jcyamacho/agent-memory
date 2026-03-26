@@ -12,7 +12,7 @@ const SERVER_INSTRUCTIONS = [
   "Use `review` to browse workspace and global memories before bulk review or cleanup.",
   "Use `remember` for one new durable fact. Use `revise` when the fact already exists but needs correction.",
   "Use `forget` only when a memory is wrong or obsolete.",
-  "Pass workspace for project-scoped memory. Omit it only for facts that apply across projects.",
+  "Pass workspace on remember for project-scoped memory. Omit it only for facts that apply across projects.",
   "Do not store secrets, temporary task state, or facts obvious from current code or git history.",
 ].join(" ");
 

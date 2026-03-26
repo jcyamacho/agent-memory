@@ -20,9 +20,9 @@ function createSearchEntity(id: string, overrides: Partial<MemorySearchEntity> =
 }
 
 describe("rerankSearchResults", () => {
-  it("reranks a single result instead of returning the retrieval score unchanged", () => {
+  it("reranks a single workspace result so the score is not the raw retrieval score", () => {
     const [result] = rerankSearchResults(
-      [createSearchEntity("only-result", { score: toNormalizedScore(1), workspace: "/other" })],
+      [createSearchEntity("only-result", { score: toNormalizedScore(1) })],
       "/tmp/project",
       DEFAULT_QUERY_EMBEDDING,
     );
@@ -30,27 +30,21 @@ describe("rerankSearchResults", () => {
     expect(result?.score).toBeLessThan(1);
   });
 
-  it("ranks exact and global workspaces above all other scoped workspaces when retrieval is tied", () => {
+  it("ranks workspace memories above global memories when other signals are equal", () => {
     const results = rerankSearchResults(
-      [
-        createSearchEntity("unrelated", { workspace: "/x/y/z" }),
-        createSearchEntity("global", { workspace: undefined }),
-        createSearchEntity("sibling", { workspace: "/a/b/d" }),
-        createSearchEntity("child", { workspace: "/a/b/c/d" }),
-        createSearchEntity("exact", { workspace: "/a/b/c" }),
-      ],
+      [createSearchEntity("global", { workspace: undefined }), createSearchEntity("exact", { workspace: "/a/b/c" })],
       "/a/b/c",
       DEFAULT_QUERY_EMBEDDING,
     );
 
-    expect(results.map((result) => result.id)).toEqual(["exact", "global", "unrelated", "sibling", "child"]);
+    expect(results.map((result) => result.id)).toEqual(["exact", "global"]);
   });
 
-  it("prefers an exact workspace match over better embedding similarity when retrieval is tied", () => {
+  it("prefers a workspace match over better embedding similarity when retrieval is tied", () => {
     const results = rerankSearchResults(
       [
-        createSearchEntity("other-workspace", { embedding: [1, 0], workspace: "/other" }),
-        createSearchEntity("exact-workspace", { embedding: [-1, 0], workspace: "/tmp/project" }),
+        createSearchEntity("global", { embedding: [1, 0], workspace: undefined }),
+        createSearchEntity("exact-workspace", { embedding: [0, 1], workspace: "/tmp/project" }),
       ],
       "/tmp/project",
       DEFAULT_QUERY_EMBEDDING,
@@ -94,7 +88,7 @@ describe("rerankSearchResults", () => {
   it("uses embedding similarity as a reranking signal when retrieval is tied", () => {
     const results = rerankSearchResults(
       [createSearchEntity("orthogonal", { embedding: [0, 1] }), createSearchEntity("aligned", { embedding: [1, 0] })],
-      undefined,
+      "/tmp/project",
       DEFAULT_QUERY_EMBEDDING,
     );
 

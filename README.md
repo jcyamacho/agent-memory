@@ -55,8 +55,8 @@ Optional LLM instructions to reinforce the MCP's built-in guidance:
   not full questions or sentences.
 - Use `memory_review` to browse workspace and global memories before bulk review
   or cleanup.
-- Pass `workspace` for project-scoped memory. Omit it only for facts that
-  apply across projects.
+- Pass `workspace` on `memory_remember` for project-scoped memory. Omit it
+  only for facts that apply across projects.
 - Use `memory_remember` to save one durable fact when the user states a stable
   preference, correction, or reusable project decision.
 - If the fact already exists, use `memory_revise` instead of creating a duplicate.
@@ -82,26 +82,21 @@ The web UI uses the same database as the MCP server.
 
 ## How Recall Finds Memories
 
-`recall` uses a multi-signal ranking system to surface the most relevant
-memories:
+`recall` requires a `workspace` and returns only memories saved in that
+workspace plus global memories (saved without a workspace). It then re-ranks
+results using a multi-signal system:
 
 1. **Text relevance** is the primary signal -- memories whose content best
    matches your search terms rank highest.
-2. **Workspace match** is the next strongest signal. When you pass
-   `workspace`, exact matches rank highest and all other scoped workspaces rank
-   below exact matches.
+2. **Workspace match** is the next strongest signal. Memories saved in the
+   queried workspace rank above global memories.
 3. **Embedding similarity** is a secondary signal. Recall builds an embedding
    from your normalized search terms and boosts memories whose stored
    embeddings are most semantically similar.
 4. **Global memories** (saved without a workspace) are treated as relevant
-   everywhere. When you pass `workspace`, they rank below exact workspace
-   matches and above memories from other workspaces.
+   everywhere. They rank below exact workspace matches but are always included.
 5. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
    ones when other signals are equal.
-
-If you omit `workspace`, recall still uses text relevance, embedding similarity,
-and recency. For best results, pass `workspace` whenever you have one. Save
-memories without a workspace only when they apply across all projects.
 
 When you save a memory from a git worktree, `agent-memory` stores the main repo
 root as the workspace. `recall` applies the same normalization to incoming

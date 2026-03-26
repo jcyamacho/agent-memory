@@ -18,10 +18,7 @@ const recallInputSchema = {
     .max(MAX_RECALL_LIMIT)
     .optional()
     .describe("Maximum matches to return. Keep this small when you only need the strongest hits."),
-  workspace: z
-    .string()
-    .optional()
-    .describe("Current working directory for project-scoped recall. Omit for cross-project recall."),
+  workspace: z.string().describe("Current working directory for project-scoped recall."),
   updated_after: z.string().optional().describe("Only return memories updated on or after this ISO 8601 timestamp."),
   updated_before: z.string().optional().describe("Only return memories updated on or before this ISO 8601 timestamp."),
 };
@@ -43,7 +40,7 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
         openWorldHint: false,
       },
       description:
-        "Retrieve memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and `workspace` when available. Results reflect the queried workspace context when applicable. Returns `<memories>...</memories>` or a no-match hint.",
+        "Retrieve memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and the current `workspace`. Results reflect the queried workspace context. Returns `<memories>...</memories>` or a no-match hint.",
       inputSchema: recallInputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {

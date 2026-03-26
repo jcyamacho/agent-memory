@@ -160,11 +160,11 @@ describe("registerRecallTool", () => {
     repository = new RecallOnlyRepository();
     repository.searchResults = [
       {
-        id: "other",
-        content: "Other workspace memory.",
+        id: "global",
+        content: "Global memory.",
         embedding: [0.1, 0.2, 0.3],
         score: toNormalizedScore(0.9),
-        workspace: "/other",
+        workspace: undefined,
         createdAt: new Date("2026-03-07T10:00:00.000Z"),
         updatedAt: new Date("2026-03-07T10:00:00.000Z"),
       },
@@ -212,9 +212,9 @@ describe("registerRecallTool", () => {
 
     expect(workspaceResolver.calls).toContain("  /worktrees/feature  ");
     const text = (response.content as { type: string; text: string }[])[0]?.text ?? "";
-    expect(text.indexOf('id="canonical"')).toBeLessThan(text.indexOf('id="other"'));
+    expect(text.indexOf('id="canonical"')).toBeLessThan(text.indexOf('id="global"'));
     expect(text).toContain('id="canonical" score="0.9" workspace="/worktrees/feature"');
-    expect(text).toContain('id="other" score="0.637" workspace="/other"');
+    expect(text).toContain('id="global" score="0.768"');
   });
 
   it("returns an MCP validation error for an invalid date", async () => {
@@ -222,6 +222,7 @@ describe("registerRecallTool", () => {
       name: "recall",
       arguments: {
         terms: ["fts5"],
+        workspace: "/repo-a",
         updated_after: "not-a-date",
       },
     });
@@ -240,6 +241,7 @@ describe("registerRecallTool", () => {
       name: "recall",
       arguments: {
         terms: ["   ", ""],
+        workspace: "/repo-a",
       },
     });
 
@@ -257,6 +259,7 @@ describe("registerRecallTool", () => {
       name: "recall",
       arguments: {
         terms: ["fts5"],
+        workspace: "/repo-a",
         preferred_source: "codex",
         filter_source: "codex",
         preferred_workspace: "/repo-a",

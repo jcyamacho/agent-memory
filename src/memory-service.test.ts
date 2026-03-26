@@ -228,11 +228,38 @@ describe("MemoryService", () => {
     expect(repository.lastSearchQuery).toEqual({
       terms: ["shared", "sqlite", "decisions"],
       limit: 3 * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
+      workspace: DEFAULT_WORKSPACE,
       updatedAfter: new Date("2026-03-01T00:00:00.000Z"),
       updatedBefore: new Date("2026-03-31T23:59:59.999Z"),
     });
     expect(results).toHaveLength(1);
     expect(results[0]?.score).toBeGreaterThan(0);
+  });
+
+  it("passes resolved workspace to repository search", async () => {
+    const repository = new FakeMemoryRepository();
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, new FakeEmbeddingService(), workspaceResolver);
+
+    await service.search({
+      terms: ["sqlite"],
+      limit: 3,
+      workspace: "/worktrees/feature",
+    });
+
+    expect(repository.lastSearchQuery?.workspace).toBe("/repo");
+  });
+
+  it("omits workspace from repository search when not provided", async () => {
+    const repository = new FakeMemoryRepository();
+    const service = createService(repository, new FakeEmbeddingService());
+
+    await service.search({
+      terms: ["sqlite"],
+      limit: 3,
+    });
+
+    expect(repository.lastSearchQuery?.workspace).toBeUndefined();
   });
 
   it("creates a query embedding from normalized terms for semantic reranking", async () => {
@@ -269,27 +296,10 @@ describe("MemoryService", () => {
     expect(results[0]?.id).toBe("best-match");
   });
 
-  it("ranks matching workspace above non-matching when other signals are equal", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.searchResults = [
-      createSearchResult("other-workspace", { workspace: "/other" }),
-      createSearchResult("preferred-workspace"),
-    ];
-    const service = createService(repository, new FakeEmbeddingService());
-
-    const results = await service.search({
-      terms: DEFAULT_SHARED_SQLITE_TERMS,
-      limit: 2,
-      workspace: DEFAULT_WORKSPACE,
-    });
-
-    expect(results[0]?.id).toBe("preferred-workspace");
-  });
-
   it("canonicalizes query workspace before reranking search results", async () => {
     const repository = new FakeMemoryRepository();
     repository.searchResults = [
-      createSearchResult("other-workspace", { workspace: "/other" }),
+      createSearchResult("global-memory", { workspace: undefined }),
       createSearchResult("canonical-workspace", { workspace: "/repo" }),
     ];
     const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
@@ -304,33 +314,13 @@ describe("MemoryService", () => {
     expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
     expect(results[0]?.id).toBe("canonical-workspace");
     expect(results[0]?.workspace).toBe("/worktrees/feature");
-    expect(results[1]?.workspace).toBe("/other");
-  });
-
-  it("ranks exact and global workspaces above all other scoped workspaces when retrieval is tied", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.searchResults = [
-      createSearchResult("unrelated", { workspace: "/x/y/z" }),
-      createSearchResult("global", { workspace: undefined }),
-      createSearchResult("sibling", { workspace: "/a/b/d" }),
-      createSearchResult("child", { workspace: "/a/b/c/d" }),
-      createSearchResult("exact", { workspace: "/a/b/c" }),
-    ];
-    const service = createService(repository, new FakeEmbeddingService());
-
-    const results = await service.search({
-      terms: DEFAULT_SHARED_SQLITE_TERMS,
-      limit: 5,
-      workspace: "/a/b/c",
-    });
-
-    expect(results.map((result) => result.id)).toEqual(["exact", "global", "unrelated", "sibling", "child"]);
+    expect(results[1]?.workspace).toBeUndefined();
   });
 
   it("reranks a single result so the score is not a raw retrieval 1.0", async () => {
     const repository = new FakeMemoryRepository();
     repository.searchResults = [
-      createSearchResult("only-result", { score: toNormalizedScore(1), workspace: "/other" }),
+      createSearchResult("only-result", { score: toNormalizedScore(1), workspace: undefined }),
     ];
     const service = createService(repository, new FakeEmbeddingService());
 
@@ -394,7 +384,7 @@ describe("MemoryService", () => {
     const repository = new FakeMemoryRepository();
     repository.searchResults = [
       createSearchResult("a", { content: "first", score: toNormalizedScore(1) }),
-      createSearchResult("b", { content: "second", score: toNormalizedScore(0), workspace: "/other" }),
+      createSearchResult("b", { content: "second", score: toNormalizedScore(0), workspace: undefined }),
     ];
     const service = createService(repository, new FakeEmbeddingService());
 
@@ -420,57 +410,6 @@ describe("MemoryService", () => {
     });
 
     expect(repository.lastSearchQuery?.terms).toEqual(["sqlite", "WAL"]);
-  });
-
-  it("ranks global memories (no workspace) above non-matching workspace when other signals are equal", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.searchResults = [
-      createSearchResult("wrong-workspace", { workspace: "/other" }),
-      createSearchResult("global-memory", { workspace: undefined }),
-    ];
-    const service = createService(repository, new FakeEmbeddingService());
-
-    const results = await service.search({
-      terms: DEFAULT_SHARED_SQLITE_TERMS,
-      limit: 2,
-      workspace: DEFAULT_WORKSPACE,
-    });
-
-    expect(results[0]?.id).toBe("global-memory");
-  });
-
-  it("does not give sibling repos a workspace bonus", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.searchResults = [
-      createSearchResult("unrelated", { workspace: "/x/y/z" }),
-      createSearchResult("sibling", { workspace: "/tmp/other-project" }),
-    ];
-    const service = createService(repository, new FakeEmbeddingService());
-
-    const results = await service.search({
-      terms: DEFAULT_SHARED_SQLITE_TERMS,
-      limit: 2,
-      workspace: DEFAULT_WORKSPACE,
-    });
-
-    expect(results.map((result) => result.id)).toEqual(["unrelated", "sibling"]);
-  });
-
-  it("does not give parent-child paths a workspace bonus", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.searchResults = [
-      createSearchResult("child", { workspace: "/tmp/project/nested" }),
-      createSearchResult("unrelated", { workspace: "/x/y/z" }),
-    ];
-    const service = createService(repository, new FakeEmbeddingService());
-
-    const results = await service.search({
-      terms: DEFAULT_SHARED_SQLITE_TERMS,
-      limit: 2,
-      workspace: DEFAULT_WORKSPACE,
-    });
-
-    expect(results.map((result) => result.id)).toEqual(["child", "unrelated"]);
   });
 
   it("ranks matching workspace above global memories when other signals are equal", async () => {

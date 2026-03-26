@@ -296,6 +296,78 @@ describe("SqliteMemoryRepository", () => {
     expect(results).toEqual([]);
   });
 
+  it("search filters by workspace and includes global memories", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await createMemory({
+      id: "ws-a",
+      content: "SQLite memory in workspace A.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/a",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await createMemory({
+      id: "ws-b",
+      content: "SQLite memory in workspace B.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/b",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await createMemory({
+      id: "global",
+      content: "SQLite global memory.",
+      embedding: DEFAULT_EMBEDDING,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["SQLite"],
+      limit: 10,
+      workspace: "/a",
+    });
+
+    const ids = results.map((r) => r.id).sort();
+    expect(ids).toEqual(["global", "ws-a"]);
+  });
+
+  it("search returns all workspaces when no workspace provided", async () => {
+    const createdAt = new Date("2026-03-08T00:00:00.000Z");
+
+    await createMemory({
+      id: "ws-a",
+      content: "SQLite memory in workspace A.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/a",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await createMemory({
+      id: "ws-b",
+      content: "SQLite memory in workspace B.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/b",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await createMemory({
+      id: "global",
+      content: "SQLite global memory.",
+      embedding: DEFAULT_EMBEDDING,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const results = await repository.search({
+      terms: ["SQLite"],
+      limit: 10,
+    });
+
+    expect(results).toHaveLength(3);
+  });
+
   it("preserves raw FTS score ordering without service-level workspace reranking", async () => {
     const createdAt = new Date("2026-03-08T00:00:00.000Z");
 

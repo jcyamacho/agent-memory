@@ -19,7 +19,7 @@ import type { WorkspaceResolver } from "./workspace-resolver.ts";
 
 export const DEFAULT_RECALL_LIMIT = 15;
 export const MAX_RECALL_LIMIT = 50;
-export const RECALL_CANDIDATE_LIMIT_MULTIPLIER = 3;
+export const RECALL_CANDIDATE_LIMIT_MULTIPLIER = 2;
 
 const DEFAULT_LIST_LIMIT = 15;
 const MAX_LIST_LIMIT = 100;
@@ -107,6 +107,7 @@ export class MemoryService implements MemoryApi {
     const normalizedQuery: SearchMemoryInput = {
       terms,
       limit: requestedLimit * RECALL_CANDIDATE_LIMIT_MULTIPLIER,
+      workspace,
       updatedAfter: input.updatedAfter,
       updatedBefore: input.updatedBefore,
     };
