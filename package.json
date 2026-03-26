@@ -20,7 +20,7 @@
     "url": "git+https://github.com/jcyamacho/agent-memory.git"
   },
   "scripts": {
-    "build": "bun build src/index.ts --target=node --external better-sqlite3 --external @huggingface/transformers --outfile dist/index.js --banner \"#!/usr/bin/env node\"",
+    "build": "bun build src/index.ts --target=node --external better-sqlite3 --outfile dist/index.js --banner \"#!/usr/bin/env node\"",
     "start": "node dist/index.js",
     "test": "bun test",
     "lint": "biome check --write && tsc --noEmit",
@@ -38,7 +38,6 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",
-    "@huggingface/transformers": "^3.8.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "better-sqlite3": "^12.6.2",
     "hono": "^4.12.8",

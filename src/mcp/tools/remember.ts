@@ -22,7 +22,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
         openWorldHint: false,
       },
       description:
-        'Save one new durable fact for later recall. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Returns `<memory id="..." />`.',
+        'Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Returns `<memory id="..." />`.',
       inputSchema: rememberInputSchema,
     },
     async ({ content, workspace }) => {

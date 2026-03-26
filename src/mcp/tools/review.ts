@@ -3,17 +3,17 @@ import * as z from "zod/v4";
 import type { MemoryApi, MemoryRecord } from "../../memory.ts";
 import { escapeXml, toMcpError } from "./shared.ts";
 
-export const REVIEW_PAGE_SIZE = 25;
+export const REVIEW_PAGE_SIZE = 50;
 
 const reviewInputSchema = {
   workspace: z.string().describe("Current working directory for project-scoped listing."),
   page: z.number().int().min(0).optional().describe("Zero-based page number. Defaults to 0."),
 };
 
-function toMemoryXml(record: MemoryRecord): string {
-  const workspace = record.workspace ? ` workspace="${escapeXml(record.workspace)}"` : "";
+function toMemoryXml(record: MemoryRecord, workspace: string): string {
+  const global = record.workspace !== workspace ? ' global="true"' : "";
   const content = escapeXml(record.content);
-  return `<memory id="${record.id}"${workspace} updated_at="${record.updatedAt.toISOString()}">\n${content}\n</memory>`;
+  return `<memory id="${record.id}"${global} updated_at="${record.updatedAt.toISOString()}">\n${content}\n</memory>`;
 }
 
 export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "list">): void {
@@ -26,7 +26,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         openWorldHint: false,
       },
       description:
-        'Browse all memories for a workspace and global memories in creation order. Use before bulk review, cleanup, or when you need to scan memories without specific search terms. For targeted retrieval by topic, use `recall` instead. Returns `<memories has_more="true|false">...</memories>` with pagination support. Each memory includes its workspace when scoped.',
+        'Load workspace and global memories sorted by most recently updated. Use at the start of a task and before saving or revising memory. Returns `<memories workspace="..." has_more="true|false">...</memories>` with pagination support. Global memories are marked with `global="true"`.',
       inputSchema: reviewInputSchema,
     },
     async ({ workspace, page }) => {
@@ -45,7 +45,9 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
           };
         }
 
-        const text = `<memories has_more="${result.hasMore}">\n${result.items.map(toMemoryXml).join("\n")}\n</memories>`;
+        const escapedWorkspace = escapeXml(workspace);
+        const memories = result.items.map((item) => toMemoryXml(item, workspace)).join("\n");
+        const text = `<memories workspace="${escapedWorkspace}" has_more="${result.hasMore}">\n${memories}\n</memories>`;
 
         return {
           content: [{ type: "text" as const, text }],

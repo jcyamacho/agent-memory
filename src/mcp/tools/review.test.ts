@@ -3,15 +3,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
-  CreateMemoryEntityInput,
+  CreateMemoryInput,
   DeleteMemoryInput,
   ListMemoriesInput,
-  MemoryEntity,
-  MemoryEntityPage,
+  MemoryPage,
+  MemoryRecord,
   MemoryRepository,
-  MemorySearchEntity,
-  SearchMemoryInput,
-  UpdateMemoryEntityInput,
+  UpdateMemoryInput,
 } from "../../memory.ts";
 import { MemoryService } from "../../memory-service.ts";
 import type { WorkspaceResolver } from "../../workspace-resolver.ts";
@@ -19,25 +17,14 @@ import { REVIEW_PAGE_SIZE, registerReviewTool } from "./review.ts";
 
 class ReviewOnlyRepository implements MemoryRepository {
   public lastListInput: ListMemoriesInput | undefined;
-  public listResult: MemoryEntityPage = { items: [], hasMore: false };
+  public listResult: MemoryPage = { items: [], hasMore: false };
 
-  async create(input: CreateMemoryEntityInput): Promise<MemoryEntity> {
+  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
     const now = new Date();
-    return {
-      id: "memory-1",
-      content: input.content,
-      embedding: input.embedding,
-      workspace: input.workspace,
-      createdAt: now,
-      updatedAt: now,
-    };
+    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
   }
 
-  async search(_query: SearchMemoryInput): Promise<MemorySearchEntity[]> {
-    return [];
-  }
-
-  async update(_input: UpdateMemoryEntityInput): Promise<MemoryEntity> {
+  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
     throw new Error("Not implemented");
   }
 
@@ -45,11 +32,11 @@ class ReviewOnlyRepository implements MemoryRepository {
     throw new Error("Not implemented");
   }
 
-  async get(_id: string): Promise<MemoryEntity | undefined> {
+  async get(_id: string): Promise<MemoryRecord | undefined> {
     return undefined;
   }
 
-  async list(input: ListMemoriesInput): Promise<MemoryEntityPage> {
+  async list(input: ListMemoriesInput): Promise<MemoryPage> {
     this.lastListInput = input;
     return this.listResult;
   }
@@ -80,15 +67,7 @@ describe("registerReviewTool", () => {
   beforeEach(async () => {
     repository = new ReviewOnlyRepository();
     workspaceResolver = new FakeWorkspaceResolver();
-    const memoryService = new MemoryService(
-      repository,
-      {
-        async createVector() {
-          return [0.1, 0.2, 0.3];
-        },
-      },
-      workspaceResolver,
-    );
+    const memoryService = new MemoryService(repository, workspaceResolver);
     server = new McpServer({
       name: "agent-memory-test",
       version: "1.0.0",
@@ -117,7 +96,6 @@ describe("registerReviewTool", () => {
         {
           id: "mem-1",
           content: "First memory.",
-          embedding: [0.1, 0.2],
           workspace: "/repo-a",
           createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),
@@ -125,7 +103,6 @@ describe("registerReviewTool", () => {
         {
           id: "mem-2",
           content: "Second memory.",
-          embedding: [0.3, 0.4],
           createdAt: new Date("2026-03-09T08:00:00.000Z"),
           updatedAt: new Date("2026-03-11T12:00:00.000Z"),
         },
@@ -139,12 +116,11 @@ describe("registerReviewTool", () => {
     });
 
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toContain('<memories has_more="true">');
-    expect(text).toContain('id="mem-1" workspace="/repo-a"');
-    expect(text).toContain('updated_at="2026-03-10T10:00:00.000Z"');
+    expect(text).toContain('<memories workspace="/repo-a" has_more="true">');
+    expect(text).toContain('id="mem-1" updated_at="2026-03-10T10:00:00.000Z"');
+    expect(text).not.toContain('id="mem-1" global=');
     expect(text).toContain("First memory.");
-    expect(text).toContain('id="mem-2" updated_at=');
-    expect(text).not.toContain('id="mem-2" workspace=');
+    expect(text).toContain('id="mem-2" global="true"');
     expect(text).toContain("Second memory.");
     expect(text).toContain("</memories>");
   });
@@ -167,7 +143,6 @@ describe("registerReviewTool", () => {
         {
           id: "mem-1",
           content: "A memory.",
-          embedding: [0.1],
           workspace: "/repo-a",
           createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),
@@ -175,15 +150,7 @@ describe("registerReviewTool", () => {
       ],
       hasMore: false,
     };
-    const memoryService = new MemoryService(
-      repository,
-      {
-        async createVector() {
-          return [0.1, 0.2, 0.3];
-        },
-      },
-      workspaceResolver,
-    );
+    const memoryService = new MemoryService(repository, workspaceResolver);
     await client.close();
     await server.close();
     server = new McpServer({ name: "agent-memory-test", version: "1.0.0" });
@@ -199,8 +166,8 @@ describe("registerReviewTool", () => {
     });
 
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toContain('<memories has_more="false">');
-    expect(text).toContain('workspace="/worktrees/feature"');
+    expect(text).toContain('<memories workspace="/worktrees/feature" has_more="false">');
+    expect(text).not.toContain('global="true"');
   });
 
   it("escapes XML special characters in content", async () => {
@@ -209,7 +176,6 @@ describe("registerReviewTool", () => {
         {
           id: "mem-1",
           content: 'Use <script> & "quotes"',
-          embedding: [0.1],
           workspace: "/repo-a",
           createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),

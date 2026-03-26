@@ -6,11 +6,10 @@ Persistent memory for MCP-powered coding agents.
 by SQLite. It helps your agent remember preferences, project context, and prior
 decisions across sessions.
 
-It exposes five tools:
+It exposes four tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
-- `recall` -> retrieve the most relevant memories later
-- `review` -> browse workspace and global memories
+- `review` -> load workspace and global memories sorted by most recently updated
 - `revise` -> update an existing memory when it becomes outdated
 - `forget` -> delete a memory that is no longer relevant
 
@@ -51,11 +50,9 @@ targets the habits models most commonly miss:
 ```md
 ## Agent Memory
 
-- Use `memory_recall` before design choices, conventions, and edge cases.
-  Query with 2-5 short anchor-heavy terms or exact phrases, not full
-  questions or sentences.
-- Always `memory_recall` before `memory_remember` to avoid duplicates. Use
-  `memory_revise` when the fact already exists.
+- Use `memory_review` at conversation start to load workspace memories into
+  context. During the session, use `memory_remember`, `memory_revise`, and
+  `memory_forget` to keep memories accurate.
 - Pass `workspace` on `memory_remember` for project-scoped memory. Omit it
   only for facts that apply across projects.
 - Do not store secrets, temporary task state, or facts obvious from current
@@ -78,29 +75,15 @@ npx -y @jcyamacho/agent-memory@latest --ui --port 9090
 
 The web UI uses the same database as the MCP server.
 
-## How Recall Finds Memories
+## How Review Works
 
-`recall` requires a `workspace` and returns only memories saved in that
-workspace plus global memories (saved without a workspace). It then re-ranks
-results using a multi-signal system:
-
-1. **Text relevance** is the primary signal -- memories whose content best
-   matches your search terms rank highest.
-2. **Workspace match** is the next strongest signal. Memories saved in the
-   queried workspace rank above global memories.
-3. **Embedding similarity** is a secondary signal. Recall builds an embedding
-   from your normalized search terms and boosts memories whose stored
-   embeddings are most semantically similar.
-4. **Global memories** (saved without a workspace) are treated as relevant
-   everywhere. They rank below exact workspace matches but are always included.
-5. **Recency** is a minor tiebreaker -- newer memories rank slightly above older
-   ones when other signals are equal.
+`review` requires a `workspace` and returns memories saved in that workspace
+plus global memories (saved without a workspace), sorted by most recently
+updated. Results are paginated -- pass `page` to load older memories.
 
 When you save a memory from a git worktree, `agent-memory` stores the main repo
-root as the workspace. `recall` applies the same normalization to incoming
+root as the workspace. `review` applies the same normalization to incoming
 workspace queries so linked worktrees still match repo-scoped memories exactly.
-When that happens, recall returns the queried workspace value so callers can
-treat the match as belonging to their current worktree context.
 
 ## Configuration
 
@@ -123,26 +106,6 @@ Set `AGENT_MEMORY_DB_PATH` when you want to:
 - keep memory in a project-specific location
 - share a memory DB across multiple clients
 - store the DB somewhere easier to back up or inspect
-
-### Model Cache Location
-
-By default, downloaded embedding model files are cached at:
-
-```text
-~/.config/agent-memory/models
-```
-
-Override it with:
-
-```bash
-AGENT_MEMORY_MODELS_CACHE_PATH=/absolute/path/to/models
-```
-
-Set `AGENT_MEMORY_MODELS_CACHE_PATH` when you want to:
-
-- keep model artifacts out of `node_modules`
-- share the model cache across reinstalls or multiple clients
-- store model downloads somewhere easier to inspect or manage
 
 Schema changes are migrated automatically, including workspace normalization for
 existing git worktree memories when the original path can still be resolved.

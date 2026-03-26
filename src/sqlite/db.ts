@@ -2,7 +2,6 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { PersistenceError } from "../errors.ts";
-import type { EmbeddingGenerator } from "../memory.ts";
 import type { WorkspaceResolver } from "../workspace-resolver.ts";
 import { createMemoryMigrations, type SqliteMigration } from "./migrations/index.ts";
 import type { SqliteDatabaseLike } from "./types.ts";
@@ -20,7 +19,6 @@ export type { SqliteMigration } from "./migrations/index.ts";
 export type { SqliteDatabaseLike, SqlStatement } from "./types.ts";
 
 export interface OpenMemoryDatabaseOptions {
-  embeddingService: EmbeddingGenerator;
   workspaceResolver: WorkspaceResolver;
 }
 
@@ -99,10 +97,8 @@ function applyPragmas(database: SqliteDatabaseLike): void {
     for (const statement of PRAGMA_STATEMENTS) {
       database.pragma(statement);
     }
-
     return;
   }
-
   for (const statement of PRAGMA_STATEMENTS) {
     database.exec(`PRAGMA ${statement}`);
   }
@@ -110,7 +106,6 @@ function applyPragmas(database: SqliteDatabaseLike): void {
 
 function getUserVersion(database: SqliteDatabaseLike): number {
   const rows = database.prepare("PRAGMA user_version").all() as Array<{ user_version: number }>;
-
   return rows[0]?.user_version ?? 0;
 }
 
@@ -120,12 +115,10 @@ function setUserVersion(database: SqliteDatabaseLike, version: number): void {
 
 function validateMigrations(migrations: readonly SqliteMigration[]): void {
   let previousVersion = 0;
-
   for (const migration of migrations) {
     if (!Number.isInteger(migration.version) || migration.version <= previousVersion) {
       throw new Error("SQLite migrations must use strictly increasing versions.");
     }
-
     previousVersion = migration.version;
   }
 }

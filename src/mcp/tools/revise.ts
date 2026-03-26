@@ -4,7 +4,7 @@ import type { MemoryApi } from "../../memory.ts";
 import { toMcpError } from "./shared.ts";
 
 const reviseInputSchema = {
-  id: z.string().describe("Memory id to update. Use an id returned by `recall`."),
+  id: z.string().describe("Memory id to update. Use an id returned by `review`."),
   content: z.string().describe("Corrected replacement text for that memory."),
 };
 
@@ -19,7 +19,7 @@ export function registerReviseTool(server: McpServer, memory: Pick<MemoryApi, "u
         openWorldHint: false,
       },
       description:
-        'Update one existing memory when the same fact still applies but its wording or details changed. Use after `recall` when you already have the memory id. Returns `<memory id="..." updated_at="..." />`.',
+        'Update one existing memory when the same fact still applies but its wording or details changed. Use after `review` when you already have the memory id. Returns `<memory id="..." updated_at="..." />`.',
       inputSchema: reviseInputSchema,
     },
     async ({ id, content }) => {

@@ -13,11 +13,6 @@ import { startWebServer } from "./server.tsx";
 
 function createTestMigrations() {
   return createMemoryMigrations({
-    embeddingService: {
-      async createVector(text: string) {
-        return [text.length, 0.5, 0.25];
-      },
-    },
     workspaceResolver: createPassthroughWorkspaceResolver(),
   });
 }
@@ -37,15 +32,7 @@ describe("Web UI server", () => {
     database = new Database(databasePath);
     await initializeMemoryDatabase(database, createTestMigrations());
     repository = new SqliteMemoryRepository(database);
-    memoryService = new MemoryService(
-      repository,
-      {
-        async createVector() {
-          return [0.1, 0.2, 0.3];
-        },
-      },
-      createPassthroughWorkspaceResolver(),
-    );
+    memoryService = new MemoryService(repository, createPassthroughWorkspaceResolver());
     server = startWebServer(memoryService, { port: 0 });
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : 0;

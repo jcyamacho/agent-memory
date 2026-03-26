@@ -3,7 +3,7 @@
 ## Project Focus
 
 - This project is a stdio MCP server that provides durable memory.
-- The MCP tool names are `remember`, `recall`, `review`, `revise`, and `forget`.
+- The MCP tool names are `remember`, `review`, `revise`, and `forget`.
 - Prioritize end-user setup and MCP configuration clarity in user-facing docs.
 
 ## Runtime and Tooling
@@ -42,7 +42,7 @@
   - Tool descriptions: when to use that tool instead of another one.
   - Parameter descriptions: expected value shape and constraints only.
 - Keep server instructions short and policy-oriented. They should explain when
-  to recall, when to save, when to revise vs forget, workspace expectations,
+  to review, when to save, when to revise vs forget, workspace expectations,
   and what must never be stored.
 - Tool descriptions should define the external contract, not the internal
   implementation. Explain what the tool does, when to use it, and the boundary
@@ -60,16 +60,15 @@
 
 ## Architecture
 
-- Recall pipeline: repository (FTS query + workspace filter) -> service
-  (over-fetch candidates, build query embedding in parallel, re-rank by
-  retrieval score + embedding similarity + workspace match + recency, slice to
-  limit) -> MCP tool (XML serialization).
-- The repository layer handles retrieval, workspace filtering, and score
-  normalization to 0..1 (`NormalizedScore`). Ranking policy (weights, scoring
-  formula, recency) belongs in the service layer.
+- Retrieval is browse-based: `review` lists workspace + global memories sorted
+  by `updated_at DESC` with pagination. There is no search or ranking -- the
+  LLM determines relevance from the loaded context.
+- The repository layer handles persistence (SQLite CRUD + FTS triggers for
+  future use). The service layer handles validation, workspace resolution, and
+  workspace remapping.
 - `WorkspaceResolver` canonicalizes paths (e.g. git worktree -> main repo root)
-  before they reach the repository or ranking layers. Do not re-normalize
-  workspace paths downstream.
+  before they reach the repository. Do not re-normalize workspace paths
+  downstream.
 - MCP tool outputs should only include server-generated values. Do not echo
   input parameters back to the caller.
 
@@ -77,11 +76,8 @@
 
 - Write tests with `bun:test` APIs.
 - Service and MCP tool tests use fake implementations (`FakeMemoryRepository`,
-  `FakeWorkspaceResolver`, `FakeEmbeddingService`) that return preset results
-  regardless of query. Only repository tests hit a real SQLite database.
-- Test scenarios must reflect what the real SQL layer can return. Do not test
-  ranking behavior for result sets that the repository would never produce
-  (e.g. memories from unrelated workspaces when a workspace filter is active).
+  `FakeWorkspaceResolver`) that return preset results regardless of query. Only
+  repository tests hit a real SQLite database.
 
 ## Docs and UX
 

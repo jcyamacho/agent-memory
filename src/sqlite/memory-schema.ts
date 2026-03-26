@@ -1,18 +1,11 @@
 import type { SqliteDatabaseLike } from "./types.ts";
 
-interface CreateMemoriesTableOptions {
-  embeddingColumn: "omit" | "nullable" | "required";
-}
-
-export function createMemoriesTable(database: SqliteDatabaseLike, options: CreateMemoriesTableOptions): void {
-  const embeddingColumn = getEmbeddingColumnSql(options.embeddingColumn);
-
+export function createMemoriesTable(database: SqliteDatabaseLike): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS memories (
       id TEXT PRIMARY KEY,
       content TEXT NOT NULL,
       workspace TEXT,
-      ${embeddingColumn}
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -21,7 +14,7 @@ export function createMemoriesTable(database: SqliteDatabaseLike, options: Creat
 
 export function createMemoryIndexes(database: SqliteDatabaseLike): void {
   database.exec(`
-    CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
+    CREATE INDEX IF NOT EXISTS idx_memories_updated_at ON memories(updated_at);
     CREATE INDEX IF NOT EXISTS idx_memories_workspace ON memories(workspace);
   `);
 }
@@ -63,15 +56,4 @@ export function dropMemorySearchArtifacts(database: SqliteDatabaseLike): void {
     DROP TRIGGER IF EXISTS memories_au;
     DROP TABLE IF EXISTS memories_fts;
   `);
-}
-
-function getEmbeddingColumnSql(mode: CreateMemoriesTableOptions["embeddingColumn"]): string {
-  switch (mode) {
-    case "omit":
-      return "";
-    case "nullable":
-      return "embedding BLOB,\n      ";
-    case "required":
-      return "embedding BLOB NOT NULL,\n      ";
-  }
 }

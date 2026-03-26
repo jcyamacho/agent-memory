@@ -10,14 +10,6 @@ import { createMemorySchemaMigration } from "./001-create-memory-schema.ts";
 import { createAddMemoryEmbeddingMigration } from "./002-add-memory-embedding.ts";
 import { createNormalizeWorkspaceMigration } from "./003-normalize-workspaces.ts";
 
-function createTestEmbeddingService() {
-  return {
-    async createVector(text: string) {
-      return [text.length, 0.5, 0.25];
-    },
-  };
-}
-
 describe("createNormalizeWorkspaceMigration", () => {
   let directory: string;
 
@@ -38,10 +30,7 @@ describe("createNormalizeWorkspaceMigration", () => {
       },
     };
 
-    await runSqliteMigrations(database, [
-      createMemorySchemaMigration,
-      createAddMemoryEmbeddingMigration(createTestEmbeddingService()),
-    ]);
+    await runSqliteMigrations(database, [createMemorySchemaMigration, createAddMemoryEmbeddingMigration()]);
     database
       .prepare(
         "INSERT INTO memories (id, content, workspace, embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -50,7 +39,7 @@ describe("createNormalizeWorkspaceMigration", () => {
         "memory-1",
         "Keep repo-scoped decisions at the repo root.",
         "/worktrees/feature",
-        new Uint8Array(new Float32Array([0.1, 0.2, 0.3]).buffer.slice(0)),
+        new Uint8Array(4),
         Date.now(),
         Date.now(),
       );
@@ -58,14 +47,7 @@ describe("createNormalizeWorkspaceMigration", () => {
       .prepare(
         "INSERT INTO memories (id, content, workspace, embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(
-        "memory-2",
-        "Keep non-git paths unchanged.",
-        "/not-a-repo",
-        new Uint8Array(new Float32Array([0.1, 0.2, 0.3]).buffer.slice(0)),
-        Date.now(),
-        Date.now(),
-      );
+      .run("memory-2", "Keep non-git paths unchanged.", "/not-a-repo", new Uint8Array(4), Date.now(), Date.now());
 
     await runSqliteMigrations(database, [createNormalizeWorkspaceMigration(workspaceResolver)]);
 
@@ -91,22 +73,12 @@ describe("createNormalizeWorkspaceMigration", () => {
       },
     };
 
-    await runSqliteMigrations(database, [
-      createMemorySchemaMigration,
-      createAddMemoryEmbeddingMigration(createTestEmbeddingService()),
-    ]);
+    await runSqliteMigrations(database, [createMemorySchemaMigration, createAddMemoryEmbeddingMigration()]);
     database
       .prepare(
         "INSERT INTO memories (id, content, workspace, embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(
-        "memory-1",
-        "Leave unresolved paths alone.",
-        "/missing-worktree",
-        new Uint8Array(new Float32Array([0.1, 0.2, 0.3]).buffer.slice(0)),
-        Date.now(),
-        Date.now(),
-      );
+      .run("memory-1", "Leave unresolved paths alone.", "/missing-worktree", new Uint8Array(4), Date.now(), Date.now());
 
     await runSqliteMigrations(database, [createNormalizeWorkspaceMigration(workspaceResolver)]);
 

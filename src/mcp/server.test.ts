@@ -2,38 +2,25 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type {
-  CreateMemoryEntityInput,
+  CreateMemoryInput,
   DeleteMemoryInput,
   ListMemoriesInput,
-  MemoryEntity,
   MemoryPage,
+  MemoryRecord,
   MemoryRepository,
-  MemorySearchEntity,
-  SearchMemoryInput,
-  UpdateMemoryEntityInput,
+  UpdateMemoryInput,
 } from "../memory.ts";
 import { MemoryService } from "../memory-service.ts";
 import { createPassthroughWorkspaceResolver } from "../workspace-resolver.ts";
 import { createMcpServer } from "./server.ts";
 
 class FakeMemoryRepository implements MemoryRepository {
-  async create(input: CreateMemoryEntityInput): Promise<MemoryEntity> {
+  async create(input: CreateMemoryInput): Promise<MemoryRecord> {
     const now = new Date();
-    return {
-      id: "memory-1",
-      content: input.content,
-      embedding: input.embedding,
-      workspace: input.workspace,
-      createdAt: now,
-      updatedAt: now,
-    };
+    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
   }
 
-  async search(_query: SearchMemoryInput): Promise<MemorySearchEntity[]> {
-    return [];
-  }
-
-  async update(_input: UpdateMemoryEntityInput): Promise<MemoryEntity> {
+  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
     throw new Error("Not implemented");
   }
 
@@ -41,11 +28,11 @@ class FakeMemoryRepository implements MemoryRepository {
     throw new Error("Not implemented");
   }
 
-  async get(_id: string): Promise<MemoryEntity | undefined> {
+  async get(_id: string): Promise<MemoryRecord | undefined> {
     return undefined;
   }
 
-  async list(_input: ListMemoriesInput): Promise<MemoryPage & { items: MemoryEntity[] }> {
+  async list(_input: ListMemoriesInput): Promise<MemoryPage> {
     return { items: [], hasMore: false };
   }
 
@@ -60,15 +47,7 @@ describe("createMcpServer", () => {
 
   beforeEach(async () => {
     server = createMcpServer(
-      new MemoryService(
-        new FakeMemoryRepository(),
-        {
-          async createVector() {
-            return [0.1, 0.2, 0.3];
-          },
-        },
-        createPassthroughWorkspaceResolver(),
-      ),
+      new MemoryService(new FakeMemoryRepository(), createPassthroughWorkspaceResolver()),
       "1.0.0",
     );
 
@@ -91,12 +70,6 @@ describe("createMcpServer", () => {
   it("registers the memory tools", async () => {
     const response = await client.listTools();
 
-    expect(response.tools.map((tool) => tool.name).sort()).toEqual([
-      "forget",
-      "recall",
-      "remember",
-      "review",
-      "revise",
-    ]);
+    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["forget", "remember", "review", "revise"]);
   });
 });
