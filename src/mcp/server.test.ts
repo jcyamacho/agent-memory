@@ -91,6 +91,12 @@ describe("createMcpServer", () => {
   it("registers the memory tools", async () => {
     const response = await client.listTools();
 
-    expect(response.tools.map((tool) => tool.name).sort()).toEqual(["forget", "recall", "remember", "revise"]);
+    expect(response.tools.map((tool) => tool.name).sort()).toEqual([
+      "forget",
+      "recall",
+      "remember",
+      "review",
+      "revise",
+    ]);
   });
 });

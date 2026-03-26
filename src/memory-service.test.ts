@@ -627,6 +627,28 @@ describe("MemoryService", () => {
     });
   });
 
+  it("remaps canonical workspace to the query workspace in list results", async () => {
+    const repository = new FakeMemoryRepository();
+    repository.memory = createMemoryEntity("memory-1", { workspace: "/repo" });
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, new FakeEmbeddingService(), workspaceResolver);
+
+    const page = await service.list({ workspace: "/worktrees/feature" });
+
+    expect(page.items[0]?.workspace).toBe("/worktrees/feature");
+  });
+
+  it("does not remap workspace in list results when it differs from the canonical", async () => {
+    const repository = new FakeMemoryRepository();
+    repository.memory = createMemoryEntity("memory-1", { workspace: "/other-repo" });
+    const workspaceResolver = new FakeWorkspaceResolver(new Map([["/worktrees/feature", "/repo"]]));
+    const service = createService(repository, new FakeEmbeddingService(), workspaceResolver);
+
+    const page = await service.list({ workspace: "/worktrees/feature" });
+
+    expect(page.items[0]?.workspace).toBe("/other-repo");
+  });
+
   it("defaults list input when values are omitted", async () => {
     const repository = new FakeMemoryRepository();
     const service = createService(repository, new FakeEmbeddingService());

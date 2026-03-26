@@ -6,7 +6,6 @@ import type {
   ListMemoriesInput,
   MemoryApi,
   MemoryEntity,
-  MemoryEntityPage,
   MemoryPage,
   MemoryRecord,
   MemoryRepository,
@@ -75,6 +74,7 @@ export class MemoryService implements MemoryApi {
   }
 
   async list(input: ListMemoriesInput): Promise<MemoryPage> {
+    const queryWorkspace = normalizeOptionalString(input.workspace);
     const workspace = await this.workspaceResolver.resolve(input.workspace);
 
     const page = await this.repository.list({
@@ -84,7 +84,10 @@ export class MemoryService implements MemoryApi {
       limit: normalizeListLimit(input.limit),
     });
 
-    return toPublicMemoryPage(page);
+    return {
+      items: page.items.map((item) => toPublicMemoryRecord(remapWorkspace(item, workspace, queryWorkspace))),
+      hasMore: page.hasMore,
+    };
   }
 
   async listWorkspaces(): Promise<string[]> {
@@ -115,7 +118,7 @@ export class MemoryService implements MemoryApi {
 
     return rerankSearchResults(results, workspace, queryEmbedding)
       .slice(0, requestedLimit)
-      .map((result) => toPublicSearchResult(remapSearchResultWorkspace(result, workspace, queryWorkspace)));
+      .map((result) => toPublicSearchResult(remapWorkspace(result, workspace, queryWorkspace)));
   }
 }
 
@@ -137,13 +140,6 @@ function toPublicSearchResult(result: MemorySearchEntity): MemorySearchResult {
     workspace: result.workspace,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
-  };
-}
-
-function toPublicMemoryPage(page: MemoryEntityPage): MemoryPage {
-  return {
-    items: page.items.map(toPublicMemoryRecord),
-    hasMore: page.hasMore,
   };
 }
 
@@ -181,17 +177,14 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
   return trimmed ? trimmed : undefined;
 }
 
-function remapSearchResultWorkspace(
-  result: MemorySearchEntity,
+function remapWorkspace<T extends { workspace?: string }>(
+  record: T,
   canonicalWorkspace: string | undefined,
   queryWorkspace: string | undefined,
-): MemorySearchEntity {
-  if (!queryWorkspace || !canonicalWorkspace || result.workspace !== canonicalWorkspace) {
-    return result;
+): T {
+  if (record.workspace !== canonicalWorkspace) {
+    return record;
   }
 
-  return {
-    ...result,
-    workspace: queryWorkspace,
-  };
+  return { ...record, workspace: queryWorkspace };
 }
