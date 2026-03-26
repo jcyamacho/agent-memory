@@ -20,7 +20,7 @@ export function createPageRoutes(memory: MemoryApi): Hono {
 
     const page = await memory.list({
       workspace: wsFilter,
-      workspaceIsNull: isNoWorkspace,
+      global: isNoWorkspace,
       offset: (pageNum - 1) * DEFAULT_LIST_LIMIT,
       limit: DEFAULT_LIST_LIMIT,
     });

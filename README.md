@@ -10,7 +10,7 @@ It exposes five tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
 - `recall` -> retrieve the most relevant memories later
-- `review` -> browse all memories for a workspace
+- `review` -> browse workspace and global memories
 - `revise` -> update an existing memory when it becomes outdated
 - `forget` -> delete a memory that is no longer relevant
 
@@ -53,7 +53,7 @@ Optional LLM instructions to reinforce the MCP's built-in guidance:
   conventions, edge cases, or saving memory.
 - Query `memory_recall` with 2-5 short anchor-heavy terms or exact phrases,
   not full questions or sentences.
-- Use `memory_review` to browse all memories for a workspace before bulk review
+- Use `memory_review` to browse workspace and global memories before bulk review
   or cleanup.
 - Pass `workspace` for project-scoped memory. Omit it only for facts that
   apply across projects.

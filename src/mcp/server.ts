@@ -9,7 +9,7 @@ import { registerReviseTool } from "./tools/revise.ts";
 const SERVER_INSTRUCTIONS = [
   "Use this server only for durable memory that should survive across turns: stable preferences, corrections, reusable decisions, and project context not obvious from code or git history.",
   "Use `recall` at conversation start, before design choices, and before saving or revising memory.",
-  "Use `review` to browse all memories for a workspace before bulk review or cleanup.",
+  "Use `review` to browse workspace and global memories before bulk review or cleanup.",
   "Use `remember` for one new durable fact. Use `revise` when the fact already exists but needs correction.",
   "Use `forget` only when a memory is wrong or obsolete.",
   "Pass workspace for project-scoped memory. Omit it only for facts that apply across projects.",

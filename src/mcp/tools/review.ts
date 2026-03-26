@@ -11,8 +11,9 @@ const reviewInputSchema = {
 };
 
 function toMemoryXml(record: MemoryRecord): string {
+  const workspace = record.workspace ? ` workspace="${escapeXml(record.workspace)}"` : "";
   const content = escapeXml(record.content);
-  return `<memory id="${record.id}" updated_at="${record.updatedAt.toISOString()}">\n${content}\n</memory>`;
+  return `<memory id="${record.id}"${workspace} updated_at="${record.updatedAt.toISOString()}">\n${content}\n</memory>`;
 }
 
 export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "list">): void {
@@ -25,7 +26,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         openWorldHint: false,
       },
       description:
-        'Browse all memories for a workspace in creation order. Use before bulk review, cleanup, or when you need to scan memories without specific search terms. For targeted retrieval by topic, use `recall` instead. Returns `<memories workspace="..." has_more="true|false">...</memories>` with pagination support.',
+        'Browse all memories for a workspace and global memories in creation order. Use before bulk review, cleanup, or when you need to scan memories without specific search terms. For targeted retrieval by topic, use `recall` instead. Returns `<memories has_more="true|false">...</memories>` with pagination support. Each memory includes its workspace when scoped.',
       inputSchema: reviewInputSchema,
     },
     async ({ workspace, page }) => {
@@ -33,6 +34,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         const pageIndex = page ?? 0;
         const result = await memory.list({
           workspace,
+          global: true,
           offset: pageIndex * REVIEW_PAGE_SIZE,
           limit: REVIEW_PAGE_SIZE,
         });
@@ -43,7 +45,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
           };
         }
 
-        const text = `<memories workspace="${escapeXml(workspace)}" has_more="${result.hasMore}">\n${result.items.map(toMemoryXml).join("\n")}\n</memories>`;
+        const text = `<memories has_more="${result.hasMore}">\n${result.items.map(toMemoryXml).join("\n")}\n</memories>`;
 
         return {
           content: [{ type: "text" as const, text }],

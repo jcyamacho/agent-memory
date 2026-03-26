@@ -613,7 +613,7 @@ describe("MemoryService", () => {
 
     await service.list({
       workspace: "  /worktrees/feature  ",
-      workspaceIsNull: true,
+      global: true,
       offset: -10,
       limit: 999,
     });
@@ -621,7 +621,7 @@ describe("MemoryService", () => {
     expect(workspaceResolver.calls).toEqual(["  /worktrees/feature  "]);
     expect(repository.lastListInput).toEqual({
       workspace: "/repo",
-      workspaceIsNull: false,
+      global: true,
       offset: 0,
       limit: 100,
     });
@@ -657,7 +657,7 @@ describe("MemoryService", () => {
 
     expect(repository.lastListInput).toEqual({
       workspace: undefined,
-      workspaceIsNull: false,
+      global: undefined,
       offset: 0,
       limit: 15,
     });

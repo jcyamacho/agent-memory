@@ -41,7 +41,7 @@ export interface MemoryEntityPage {
 
 export interface ListMemoriesInput {
   workspace?: string;
-  workspaceIsNull?: boolean;
+  global?: boolean;
   offset?: number;
   limit?: number;
 }

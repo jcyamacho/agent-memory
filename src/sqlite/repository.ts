@@ -163,10 +163,13 @@ export class SqliteMemoryRepository implements MemoryRepository {
       const offset = options.offset ?? 0;
       const limit = options.limit ?? DEFAULT_LIST_LIMIT;
 
-      if (options.workspace) {
+      if (options.workspace && options.global) {
+        whereClauses.push("(workspace = ? OR workspace IS NULL)");
+        params.push(options.workspace);
+      } else if (options.workspace) {
         whereClauses.push("workspace = ?");
         params.push(options.workspace);
-      } else if (options.workspaceIsNull) {
+      } else if (options.global) {
         whereClauses.push("workspace IS NULL");
       }
 

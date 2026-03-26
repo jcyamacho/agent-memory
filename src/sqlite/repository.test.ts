@@ -419,7 +419,7 @@ describe("SqliteMemoryRepository", () => {
     expect(page.items[0]?.id).toBe("a1");
   });
 
-  it("list filters by workspaceIsNull", async () => {
+  it("list filters by global", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
     await createMemory({
@@ -438,10 +438,44 @@ describe("SqliteMemoryRepository", () => {
       updatedAt: t,
     });
 
-    const page = await repository.list({ offset: 0, limit: 10, workspaceIsNull: true });
+    const page = await repository.list({ offset: 0, limit: 10, global: true });
 
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.id).toBe("no-ws");
+  });
+
+  it("list filters by workspace and global together", async () => {
+    const t = new Date("2026-03-01T00:00:00.000Z");
+
+    await createMemory({
+      id: "ws-a",
+      content: "In A.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/a",
+      createdAt: t,
+      updatedAt: t,
+    });
+    await createMemory({
+      id: "ws-b",
+      content: "In B.",
+      embedding: DEFAULT_EMBEDDING,
+      workspace: "/b",
+      createdAt: t,
+      updatedAt: t,
+    });
+    await createMemory({
+      id: "global",
+      content: "Global.",
+      embedding: DEFAULT_EMBEDDING,
+      createdAt: t,
+      updatedAt: t,
+    });
+
+    const page = await repository.list({ offset: 0, limit: 10, workspace: "/a", global: true });
+
+    expect(page.items).toHaveLength(2);
+    const ids = page.items.map((m) => m.id).sort();
+    expect(ids).toEqual(["global", "ws-a"]);
   });
 
   it("update changes content, replaces embedding, and bumps updated_at", async () => {

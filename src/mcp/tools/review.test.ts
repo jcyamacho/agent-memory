@@ -111,7 +111,7 @@ describe("registerReviewTool", () => {
     await server.close();
   });
 
-  it("returns memories with workspace on wrapper and has_more", async () => {
+  it("returns memories with workspace per-memory and has_more on wrapper", async () => {
     repository.listResult = {
       items: [
         {
@@ -126,7 +126,6 @@ describe("registerReviewTool", () => {
           id: "mem-2",
           content: "Second memory.",
           embedding: [0.3, 0.4],
-          workspace: "/repo-a",
           createdAt: new Date("2026-03-09T08:00:00.000Z"),
           updatedAt: new Date("2026-03-11T12:00:00.000Z"),
         },
@@ -140,15 +139,14 @@ describe("registerReviewTool", () => {
     });
 
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toContain('<memories workspace="/repo-a" has_more="true">');
-    expect(text).toContain('id="mem-1"');
+    expect(text).toContain('<memories has_more="true">');
+    expect(text).toContain('id="mem-1" workspace="/repo-a"');
     expect(text).toContain('updated_at="2026-03-10T10:00:00.000Z"');
     expect(text).toContain("First memory.");
-    expect(text).toContain('id="mem-2"');
-    expect(text).toContain('updated_at="2026-03-11T12:00:00.000Z"');
+    expect(text).toContain('id="mem-2" updated_at=');
+    expect(text).not.toContain('id="mem-2" workspace=');
     expect(text).toContain("Second memory.");
     expect(text).toContain("</memories>");
-    expect(text).not.toContain('workspace="/repo-a" updated_at');
   });
 
   it("returns empty hint when no memories exist", async () => {
@@ -201,7 +199,8 @@ describe("registerReviewTool", () => {
     });
 
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toContain('<memories workspace="/worktrees/feature" has_more="false">');
+    expect(text).toContain('<memories has_more="false">');
+    expect(text).toContain('workspace="/worktrees/feature"');
   });
 
   it("escapes XML special characters in content", async () => {
@@ -250,6 +249,18 @@ describe("registerReviewTool", () => {
     expect(repository.lastListInput).toMatchObject({
       offset: 0,
       limit: REVIEW_PAGE_SIZE,
+    });
+  });
+
+  it("includes global memories alongside workspace memories", async () => {
+    await client.callTool({
+      name: "review",
+      arguments: { workspace: "/repo-a" },
+    });
+
+    expect(repository.lastListInput).toMatchObject({
+      workspace: "/repo-a",
+      global: true,
     });
   });
 });

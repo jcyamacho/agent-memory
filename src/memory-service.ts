@@ -79,7 +79,7 @@ export class MemoryService implements MemoryApi {
 
     const page = await this.repository.list({
       workspace,
-      workspaceIsNull: workspace ? false : Boolean(input.workspaceIsNull),
+      global: input.global,
       offset: normalizeOffset(input.offset),
       limit: normalizeListLimit(input.limit),
     });
