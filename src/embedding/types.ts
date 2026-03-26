@@ -9,5 +9,4 @@ export type EmbeddingExtractor = (text: string) => Promise<EmbeddingTensorLike>;
 
 export interface EmbeddingServiceOptions {
   createExtractor?: () => Promise<EmbeddingExtractor>;
-  modelsCachePath?: string;
 }

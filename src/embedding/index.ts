@@ -1,4 +1,4 @@
-export { DEFAULT_EMBEDDING_MODEL, EmbeddingService } from "./service.ts";
+export { configureModelsCache, DEFAULT_EMBEDDING_MODEL, EmbeddingService } from "./service.ts";
 export { compareVectors } from "./similarity.ts";
 export type {
   EmbeddingExtractor,

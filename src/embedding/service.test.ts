@@ -4,31 +4,18 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { env as transformersEnv } from "@huggingface/transformers";
-import { AGENT_MEMORY_MODELS_CACHE_PATH_ENV } from "../config.ts";
 import { ValidationError } from "../errors.ts";
-import { EmbeddingService } from "./service.ts";
+import { configureModelsCache, EmbeddingService } from "./service.ts";
 import type { EmbeddingExtractor } from "./types.ts";
 
 describe("EmbeddingService", () => {
   let directory: string;
-  const originalCacheDir = transformersEnv.cacheDir;
-  const originalUseFSCache = transformersEnv.useFSCache;
-  const originalModelsCachePath = process.env[AGENT_MEMORY_MODELS_CACHE_PATH_ENV];
 
   beforeEach(() => {
     directory = mkdtempSync(join(tmpdir(), "agent-memory-model-cache-test-"));
   });
 
   afterEach(async () => {
-    transformersEnv.cacheDir = originalCacheDir;
-    transformersEnv.useFSCache = originalUseFSCache;
-
-    if (originalModelsCachePath === undefined) {
-      delete process.env[AGENT_MEMORY_MODELS_CACHE_PATH_ENV];
-    } else {
-      process.env[AGENT_MEMORY_MODELS_CACHE_PATH_ENV] = originalModelsCachePath;
-    }
-
     await rm(directory, { force: true, recursive: true });
   });
 
@@ -45,7 +32,6 @@ describe("EmbeddingService", () => {
 
     const service = new EmbeddingService({
       createExtractor: async () => extractor,
-      modelsCachePath: join(directory, "configured-model-cache"),
     });
 
     const vector = await service.createVector("  Share WAL mode guidance across agents.  ");
@@ -64,7 +50,6 @@ describe("EmbeddingService", () => {
           tolist: () => [[0.1, 0.2, 0.3]],
         });
       },
-      modelsCachePath: join(directory, "configured-model-cache"),
     });
 
     await service.createVector("first");
@@ -73,16 +58,11 @@ describe("EmbeddingService", () => {
     expect(factoryCalls).toBe(1);
   });
 
-  it("uses the configured models cache path from the environment and creates the directory", async () => {
-    const modelsCachePath = join(directory, "env-model-cache");
-    process.env[AGENT_MEMORY_MODELS_CACHE_PATH_ENV] = modelsCachePath;
-    let extractorCalls = 0;
+  it("warmup triggers extractor initialization without creating a vector", async () => {
+    let factoryCalls = 0;
     const service = new EmbeddingService({
       createExtractor: async () => {
-        extractorCalls += 1;
-        expect(transformersEnv.cacheDir).toBe(modelsCachePath);
-        expect(transformersEnv.useFSCache).toBe(true);
-        expect(existsSync(modelsCachePath)).toBe(true);
+        factoryCalls += 1;
 
         return async () => ({
           tolist: () => [[0.1, 0.2, 0.3]],
@@ -90,27 +70,15 @@ describe("EmbeddingService", () => {
       },
     });
 
-    await service.createVector("cache me");
+    expect(factoryCalls).toBe(0);
 
-    expect(extractorCalls).toBe(1);
-  });
+    await service.warmup();
 
-  it("prefers an explicit models cache path over the environment", async () => {
-    process.env[AGENT_MEMORY_MODELS_CACHE_PATH_ENV] = join(directory, "env-model-cache");
-    const explicitModelsCachePath = join(directory, "explicit-model-cache");
-    const service = new EmbeddingService({
-      modelsCachePath: explicitModelsCachePath,
-      createExtractor: async () => {
-        expect(transformersEnv.cacheDir).toBe(explicitModelsCachePath);
-        expect(existsSync(explicitModelsCachePath)).toBe(true);
+    expect(factoryCalls).toBe(1);
 
-        return async () => ({
-          tolist: () => [[0.1, 0.2, 0.3]],
-        });
-      },
-    });
+    await service.createVector("after warmup");
 
-    await service.createVector("cache me");
+    expect(factoryCalls).toBe(1);
   });
 
   it("rejects empty text", () => {
@@ -118,10 +86,35 @@ describe("EmbeddingService", () => {
       createExtractor: async () => {
         throw new Error("not used");
       },
-      modelsCachePath: join(directory, "configured-model-cache"),
     });
 
     expect(service.createVector("   ")).rejects.toThrow(ValidationError);
     expect(service.createVector("   ")).rejects.toThrow("Text is required.");
+  });
+});
+
+describe("configureModelsCache", () => {
+  let directory: string;
+  const originalCacheDir = transformersEnv.cacheDir;
+  const originalUseFSCache = transformersEnv.useFSCache;
+
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), "agent-memory-model-cache-test-"));
+  });
+
+  afterEach(async () => {
+    transformersEnv.cacheDir = originalCacheDir;
+    transformersEnv.useFSCache = originalUseFSCache;
+    await rm(directory, { force: true, recursive: true });
+  });
+
+  it("creates the cache directory and configures the transformers environment", () => {
+    const modelsCachePath = join(directory, "model-cache");
+
+    configureModelsCache(modelsCachePath);
+
+    expect(existsSync(modelsCachePath)).toBe(true);
+    expect(transformersEnv.cacheDir).toBe(modelsCachePath);
+    expect(transformersEnv.useFSCache).toBe(true);
   });
 });

@@ -1,6 +1,5 @@
 import { mkdirSync } from "node:fs";
 import { pipeline, env as transformersEnv } from "@huggingface/transformers";
-import { resolveModelsCachePath } from "../config.ts";
 import { ValidationError } from "../errors.ts";
 import type {
   EmbeddingExtractor,
@@ -12,12 +11,19 @@ import type {
 
 export const DEFAULT_EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
 
+export function configureModelsCache(modelsCachePath: string): void {
+  mkdirSync(modelsCachePath, { recursive: true });
+  transformersEnv.useFSCache = true;
+  transformersEnv.cacheDir = modelsCachePath;
+}
+
 export class EmbeddingService {
   private extractorPromise: Promise<EmbeddingExtractor> | undefined;
-  private readonly modelsCachePath: string;
 
-  constructor(private readonly options: EmbeddingServiceOptions = {}) {
-    this.modelsCachePath = options.modelsCachePath ?? resolveModelsCachePath();
+  constructor(private readonly options: EmbeddingServiceOptions = {}) {}
+
+  async warmup(): Promise<void> {
+    await this.getExtractor();
   }
 
   async createVector(text: string): Promise<EmbeddingVector> {
@@ -35,18 +41,11 @@ export class EmbeddingService {
 
   private getExtractor(): Promise<EmbeddingExtractor> {
     if (!this.extractorPromise) {
-      configureModelsCache(this.modelsCachePath);
       this.extractorPromise = (this.options.createExtractor ?? createDefaultExtractor)();
     }
 
     return this.extractorPromise;
   }
-}
-
-function configureModelsCache(modelsCachePath: string): void {
-  mkdirSync(modelsCachePath, { recursive: true });
-  transformersEnv.useFSCache = true;
-  transformersEnv.cacheDir = modelsCachePath;
 }
 
 async function createDefaultExtractor(): Promise<EmbeddingExtractor> {

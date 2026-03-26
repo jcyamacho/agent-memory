@@ -1,7 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { version } from "../package.json";
 import { resolveConfig } from "./config.ts";
-import { EmbeddingService } from "./embedding/index.ts";
+import { configureModelsCache, EmbeddingService } from "./embedding/index.ts";
 import { createMcpServer } from "./mcp/server.ts";
 import { MemoryService } from "./memory-service.ts";
 import { openMemoryDatabase, SqliteMemoryRepository } from "./sqlite/index.ts";
@@ -9,11 +9,16 @@ import { startWebServer } from "./ui/server.tsx";
 import { createGitWorkspaceResolver } from "./workspace-resolver.ts";
 
 const config = resolveConfig();
-const embeddingService = new EmbeddingService({ modelsCachePath: config.modelsCachePath });
+
+configureModelsCache(config.modelsCachePath);
+
+const embeddingService = new EmbeddingService();
 const workspaceResolver = createGitWorkspaceResolver();
 const database = await openMemoryDatabase(config.databasePath, { embeddingService, workspaceResolver });
 const repository = new SqliteMemoryRepository(database);
 const memoryService = new MemoryService(repository, embeddingService, workspaceResolver);
+
+embeddingService.warmup();
 
 if (config.uiMode) {
   const server = startWebServer(memoryService, { port: config.uiPort });
