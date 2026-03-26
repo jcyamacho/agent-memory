@@ -55,6 +55,9 @@ targets the habits models most commonly miss:
   `memory_forget` to keep memories accurate.
 - Pass `workspace` on `memory_remember` for project-scoped memory. Omit it
   only for facts that apply across projects.
+- Remember preferences, confirmed approaches, and decisions with reasoning
+  that would be lost after the session.
+- Revise or forget stale memories immediately when you spot them.
 - Do not store secrets, temporary task state, or facts obvious from current
   code or git history.
 ```
