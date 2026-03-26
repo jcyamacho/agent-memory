@@ -40,7 +40,7 @@ export function registerRecallTool(server: McpServer, memory: Pick<MemoryApi, "s
         openWorldHint: false,
       },
       description:
-        "Retrieve memories relevant to the current task or check whether a fact already exists before saving. Use at conversation start and before design choices. Pass short anchor-heavy `terms` and the current `workspace`. Results reflect the queried workspace context. Returns `<memories>...</memories>` or a no-match hint.",
+        "Retrieve memories relevant to the current task or check whether a fact already exists before saving. Use before design choices and before saving or revising memory. Pass short anchor-heavy `terms` and the current `workspace`. Results reflect the queried workspace context. Returns `<memories>...</memories>` or a no-match hint.",
       inputSchema: recallInputSchema,
     },
     async ({ terms, limit, workspace, updated_after, updated_before }) => {

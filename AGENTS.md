@@ -1,9 +1,9 @@
-# AGENTS.md
+# agent-memory
 
 ## Project Focus
 
 - This project is a stdio MCP server that provides durable memory.
-- The MCP tool names are `remember`, `recall`, `revise`, and `forget`.
+- The MCP tool names are `remember`, `recall`, `review`, `revise`, and `forget`.
 - Prioritize end-user setup and MCP configuration clarity in user-facing docs.
 
 ## Runtime and Tooling
@@ -31,50 +31,57 @@
   copied user prompt.
 - Do not assume every MCP client gives server instructions equal weight. Keep
   critical activation guidance in tool descriptions as well, and treat project
-  rules files like `AGENTS.md`, `CLAUDE.md`, or client-specific rules as
-  important reinforcement.
+  rules files like `AGENTS.md` or client-specific rules as important
+  reinforcement.
 - Treat README copy-paste prompts as user-controlled guidance. Use them to
   reinforce the most important memory habits, not to document every behavior.
-- Scope each instruction layer tightly:
+- Scope each instruction layer tightly and avoid repeating guidance across
+  levels unless it is a critical safety rule:
   - README optional prompt: shortest high-value habits only.
   - Server instructions: top-level policy for when to use the MCP.
   - Tool descriptions: when to use that tool instead of another one.
-  - Parameter descriptions: how to fill that specific field.
-- Avoid repeating the same guidance at multiple levels unless it is a critical
-  safety rule.
+  - Parameter descriptions: expected value shape and constraints only.
 - Keep server instructions short and policy-oriented. They should explain when
   to recall, when to save, when to revise vs forget, workspace expectations,
   and what must never be stored.
-- Tool descriptions should explain what the tool does, when to use it, and the
-  main boundary versus neighboring tools. Keep output-format notes brief.
-- Tool descriptions should not explain internal mechanisms unless they change
-  the caller-visible contract. Prefer describing what the caller should expect
-  from the response rather than how the server implements it.
-- Parameter descriptions should describe the expected value shape and
-  constraints only. Do not restate whole-tool policy there.
-- Prefer concrete, operational wording over implementation jargon. Explain user
-  outcomes, not internals, unless the internal detail materially changes tool
-  use.
 - Tool descriptions should define the external contract, not the internal
-  implementation. Keep internal details out of model-facing instructions unless
-  they are required to use the tool correctly.
-- Keep tools focused and atomic. If a description needs many branches or modes,
-  the tool boundary is probably too broad.
+  implementation. Explain what the tool does, when to use it, and the boundary
+  versus neighboring tools. Prefer concrete, operational wording over
+  implementation jargon.
 - Use strong schemas and concise descriptions together. The schema should carry
   structure; the text should carry intent.
+- Keep tools focused and atomic. If a description needs many branches or modes,
+  the tool boundary is probably too broad.
+- Prefer stable, explicit return formats and document them briefly in the tool
+  description when they help the model chain follow-up calls correctly.
 - When useful, add accurate MCP tool annotations such as `readOnlyHint`,
   `destructiveHint`, `idempotentHint`, and `openWorldHint`, but treat them as
   supplemental hints rather than the primary guidance channel.
-- Prefer stable, explicit return formats and document them briefly in the tool
-  description when they help the model chain follow-up calls correctly.
 
 ## Architecture
 
-- The repository layer handles retrieval and normalizes scores to 0..1
-  (`NormalizedScore`). Ranking policy (workspace preference, recency) belongs
-  in the service layer, not in SQL queries.
+- Recall pipeline: repository (FTS query + workspace filter) -> service
+  (over-fetch candidates, build query embedding in parallel, re-rank by
+  retrieval score + embedding similarity + workspace match + recency, slice to
+  limit) -> MCP tool (XML serialization).
+- The repository layer handles retrieval, workspace filtering, and score
+  normalization to 0..1 (`NormalizedScore`). Ranking policy (weights, scoring
+  formula, recency) belongs in the service layer.
+- `WorkspaceResolver` canonicalizes paths (e.g. git worktree -> main repo root)
+  before they reach the repository or ranking layers. Do not re-normalize
+  workspace paths downstream.
 - MCP tool outputs should only include server-generated values. Do not echo
   input parameters back to the caller.
+
+## Testing
+
+- Write tests with `bun:test` APIs.
+- Service and MCP tool tests use fake implementations (`FakeMemoryRepository`,
+  `FakeWorkspaceResolver`, `FakeEmbeddingService`) that return preset results
+  regardless of query. Only repository tests hit a real SQLite database.
+- Test scenarios must reflect what the real SQL layer can return. Do not test
+  ranking behavior for result sets that the repository would never produce
+  (e.g. memories from unrelated workspaces when a workspace filter is active).
 
 ## Docs and UX
 
@@ -87,4 +94,3 @@
 ## Validation Before Finish
 
 - Run `bun lint`, `bun test`, and `bun run build` before finishing.
-- Write tests with `bun:test` APIs.

@@ -44,24 +44,22 @@ OpenCode:
 
 ## Optional LLM Instructions
 
-Optional LLM instructions to reinforce the MCP's built-in guidance:
+Optional LLM instructions to reinforce the MCP's built-in guidance. The server
+instructions and tool descriptions already cover most behavior -- this prompt
+targets the habits models most commonly miss:
 
 ```md
 ## Agent Memory
 
-- Use `memory_recall` at conversation start and before design choices,
-  conventions, edge cases, or saving memory.
-- Query `memory_recall` with 2-5 short anchor-heavy terms or exact phrases,
-  not full questions or sentences.
-- Use `memory_review` to browse workspace and global memories before bulk review
-  or cleanup.
+- Use `memory_recall` before design choices, conventions, and edge cases.
+  Query with 2-5 short anchor-heavy terms or exact phrases, not full
+  questions or sentences.
+- Always `memory_recall` before `memory_remember` to avoid duplicates. Use
+  `memory_revise` when the fact already exists.
 - Pass `workspace` on `memory_remember` for project-scoped memory. Omit it
   only for facts that apply across projects.
-- Use `memory_remember` to save one durable fact when the user states a stable
-  preference, correction, or reusable project decision.
-- If the fact already exists, use `memory_revise` instead of creating a duplicate.
-- Use `memory_forget` to remove a wrong or obsolete memory.
-- Do not store secrets or temporary task state in memory.
+- Do not store secrets, temporary task state, or facts obvious from current
+  code or git history.
 ```
 
 ## Web UI
