@@ -5,6 +5,7 @@ import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { ValidationError } from "./errors.ts";
 import { createGitWorkspaceResolver } from "./workspace-resolver.ts";
 
 const execFileAsync = promisify(execFile);
@@ -20,10 +21,10 @@ describe("createGitWorkspaceResolver", () => {
     await rm(directory, { force: true, recursive: true });
   });
 
-  it("returns undefined for blank workspaces", async () => {
+  it("rejects blank workspaces", async () => {
     const resolver = createGitWorkspaceResolver();
 
-    await expect(resolver.resolve("   ")).resolves.toBeUndefined();
+    await expect(resolver.resolve("   ")).rejects.toThrow(ValidationError);
   });
 
   it("keeps the main repo path unchanged", async () => {

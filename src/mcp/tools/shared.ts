@@ -1,5 +1,6 @@
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { MemoryError } from "../../errors.ts";
+import type { MemoryRecord } from "../../memory.ts";
 
 export function toMcpError(error: unknown): McpError {
   if (error instanceof McpError) {
@@ -20,6 +21,38 @@ export function toMcpError(error: unknown): McpError {
 
 export const escapeXml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function toMemoryXml(
+  record: MemoryRecord,
+  options?: {
+    deleted?: boolean;
+    skipWorkspaceIfEquals?: string;
+  },
+): string {
+  const scopeAttribute = getMemoryScopeAttribute(record, options?.skipWorkspaceIfEquals);
+  const attributes = [
+    `id="${escapeXml(record.id)}"`,
+    `updated_at="${record.updatedAt.toISOString()}"`,
+    scopeAttribute,
+    options?.deleted ? 'deleted="true"' : undefined,
+  ]
+    .filter((value) => value)
+    .join(" ");
+
+  return `<memory ${attributes}>\n${escapeXml(record.content)}\n</memory>`;
+}
+
+function getMemoryScopeAttribute(record: MemoryRecord, skipWorkspaceIfEquals: string | undefined): string | undefined {
+  if (record.workspace === undefined) {
+    return 'global="true"';
+  }
+
+  if (record.workspace === skipWorkspaceIfEquals) {
+    return undefined;
+  }
+
+  return `workspace="${escapeXml(record.workspace)}"`;
+}
 
 export function parseOptionalDate(value: string | undefined, fieldName: string): Date | undefined {
   if (!value) {

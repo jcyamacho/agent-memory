@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import type { MemoryApi, MemoryRecord } from "../../memory.ts";
-import { escapeXml, toMcpError } from "./shared.ts";
+import type { MemoryApi } from "../../memory.ts";
+import { escapeXml, toMcpError, toMemoryXml } from "./shared.ts";
 
 export const REVIEW_PAGE_SIZE = 50;
 
@@ -9,12 +9,6 @@ const reviewInputSchema = {
   workspace: z.string().describe("Current working directory for project-scoped listing."),
   page: z.number().int().min(0).optional().describe("Zero-based page number. Defaults to 0."),
 };
-
-function toMemoryXml(record: MemoryRecord, workspace: string): string {
-  const global = record.workspace !== workspace ? ' global="true"' : "";
-  const content = escapeXml(record.content);
-  return `<memory id="${record.id}"${global} updated_at="${record.updatedAt.toISOString()}">\n${content}\n</memory>`;
-}
 
 export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "list">): void {
   server.registerTool(
@@ -46,7 +40,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         }
 
         const escapedWorkspace = escapeXml(workspace);
-        const memories = result.items.map((item) => toMemoryXml(item, workspace)).join("\n");
+        const memories = result.items.map((item) => toMemoryXml(item, { skipWorkspaceIfEquals: workspace })).join("\n");
         const text = `<memories workspace="${escapedWorkspace}" has_more="${result.hasMore}">\n${memories}\n</memories>`;
 
         return {

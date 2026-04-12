@@ -48,17 +48,19 @@ describe("registerRememberTool", () => {
     const response = await client.callTool({
       name: "remember",
       arguments: {
-        content: "  Keep migrations isolated from repository logic.  ",
-        workspace: "  /repo-a  ",
+        content: "Keep migrations isolated from repository logic.",
+        workspace: "/repo-a",
       },
     });
 
     expect(savedMemory).toBeDefined();
     expect(savedMemory).toMatchObject({
-      content: "  Keep migrations isolated from repository logic.  ",
-      workspace: "  /repo-a  ",
+      content: "Keep migrations isolated from repository logic.",
+      workspace: "/repo-a",
     });
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toBe('<memory id="memory-1" />');
+    expect(text).toBe(
+      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" workspace="/repo-a">\nKeep migrations isolated from repository logic.\n</memory>',
+    );
   });
 });

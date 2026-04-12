@@ -27,7 +27,6 @@ class FakeMemoryRepository implements MemoryRepository {
   async delete(_input: DeleteMemoryInput): Promise<void> {
     throw new Error("Not implemented");
   }
-
   async get(_id: string): Promise<MemoryRecord | undefined> {
     return undefined;
   }

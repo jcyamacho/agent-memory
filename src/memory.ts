@@ -25,7 +25,8 @@ export interface CreateMemoryInput {
 
 export interface UpdateMemoryInput {
   id: string;
-  content: string;
+  content?: string;
+  workspace?: string | null;
 }
 
 export interface DeleteMemoryInput {
@@ -35,7 +36,7 @@ export interface DeleteMemoryInput {
 export interface MemoryApi {
   create(input: CreateMemoryInput): Promise<MemoryRecord>;
   update(input: UpdateMemoryInput): Promise<MemoryRecord>;
-  delete(input: DeleteMemoryInput): Promise<void>;
+  delete(input: DeleteMemoryInput): Promise<MemoryRecord>;
   get(id: string): Promise<MemoryRecord | undefined>;
   list(input: ListMemoriesInput): Promise<MemoryPage>;
   listWorkspaces(): Promise<string[]>;

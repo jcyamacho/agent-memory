@@ -25,7 +25,7 @@ describe("createNormalizeWorkspaceMigration", () => {
     const databasePath = join(directory, "normalize-workspaces.db");
     const database = new Database(databasePath);
     const workspaceResolver: WorkspaceResolver = {
-      async resolve(workspace) {
+      async resolve(workspace: string): Promise<string> {
         return workspace === "/worktrees/feature" ? "/repo" : workspace;
       },
     };
@@ -68,7 +68,7 @@ describe("createNormalizeWorkspaceMigration", () => {
     const databasePath = join(directory, "normalize-workspaces-fallback.db");
     const database = new Database(databasePath);
     const workspaceResolver: WorkspaceResolver = {
-      async resolve(workspace) {
+      async resolve(workspace: string): Promise<string> {
         return workspace;
       },
     };

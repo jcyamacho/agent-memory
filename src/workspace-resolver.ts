@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
 import { basename, dirname } from "node:path";
 import { promisify } from "node:util";
+import { ValidationError } from "./errors.ts";
 
 const execFileAsync = promisify(execFile);
 
 export interface WorkspaceResolver {
-  resolve(workspace?: string): Promise<string | undefined>;
+  resolve(workspace: string): Promise<string>;
 }
 
 export interface CreateGitWorkspaceResolverOptions {
@@ -14,13 +15,13 @@ export interface CreateGitWorkspaceResolverOptions {
 
 export function createGitWorkspaceResolver(options: CreateGitWorkspaceResolverOptions = {}): WorkspaceResolver {
   const getGitCommonDir = options.getGitCommonDir ?? defaultGetGitCommonDir;
-  const cache = new Map<string, Promise<string | undefined>>();
+  const cache = new Map<string, Promise<string>>();
 
   return {
-    async resolve(workspace?: string): Promise<string | undefined> {
-      const trimmed = normalizeOptionalString(workspace);
+    async resolve(workspace: string): Promise<string> {
+      const trimmed = workspace.trim();
       if (!trimmed) {
-        return undefined;
+        throw new ValidationError("Workspace is required.");
       }
 
       const cached = cache.get(trimmed);
@@ -37,8 +38,13 @@ export function createGitWorkspaceResolver(options: CreateGitWorkspaceResolverOp
 
 export function createPassthroughWorkspaceResolver(): WorkspaceResolver {
   return {
-    async resolve(workspace?: string): Promise<string | undefined> {
-      return normalizeOptionalString(workspace);
+    async resolve(workspace: string): Promise<string> {
+      const trimmed = workspace.trim();
+      if (!trimmed) {
+        throw new ValidationError("Workspace is required.");
+      }
+
+      return trimmed;
     },
   };
 }
@@ -64,9 +70,4 @@ async function defaultGetGitCommonDir(cwd: string): Promise<string> {
     cwd,
   });
   return stdout.trim();
-}
-
-function normalizeOptionalString(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }

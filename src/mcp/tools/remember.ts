@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { MemoryApi } from "../../memory.ts";
-import { toMcpError } from "./shared.ts";
+import { toMcpError, toMemoryXml } from "./shared.ts";
 
 const rememberInputSchema = {
   content: z.string().describe("One new durable fact to save. Use a self-contained sentence or short note."),
@@ -22,7 +22,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
         openWorldHint: false,
       },
       description:
-        'Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Returns `<memory id="..." />`.',
+        "Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Returns the saved memory as `<memory ...>...</memory>`.",
       inputSchema: rememberInputSchema,
     },
     async ({ content, workspace }) => {
@@ -33,7 +33,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
         });
 
         return {
-          content: [{ type: "text" as const, text: `<memory id="${savedMemory.id}" />` }],
+          content: [{ type: "text" as const, text: toMemoryXml(savedMemory) }],
         };
       } catch (error) {
         throw toMcpError(error);

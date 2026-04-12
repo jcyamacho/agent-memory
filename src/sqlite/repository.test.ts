@@ -261,6 +261,47 @@ describe("SqliteMemoryRepository", () => {
     expect(updated.updatedAt.getTime()).toBeGreaterThan(createdAt.getTime());
   });
 
+  it("update changes workspace and bumps updated_at", async () => {
+    const createdAt = new Date("2026-03-01T00:00:00.000Z");
+
+    await createMemory({
+      id: "to-rescope",
+      content: "Original content.",
+      workspace: "/repo",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const updated = await repository.update({
+      id: "to-rescope",
+      workspace: null,
+    });
+
+    expect(updated.content).toBe("Original content.");
+    expect(updated.workspace).toBeUndefined();
+    expect(updated.createdAt.getTime()).toBe(createdAt.getTime());
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(createdAt.getTime());
+  });
+
+  it("update supports moving a global memory into a workspace", async () => {
+    const createdAt = new Date("2026-03-01T00:00:00.000Z");
+
+    await createMemory({
+      id: "global-to-workspace",
+      content: "Global content.",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const updated = await repository.update({
+      id: "global-to-workspace",
+      workspace: "/repo",
+    });
+
+    expect(updated.workspace).toBe("/repo");
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(createdAt.getTime());
+  });
+
   it("update syncs FTS index", async () => {
     const t = new Date("2026-03-01T00:00:00.000Z");
 
@@ -281,6 +322,54 @@ describe("SqliteMemoryRepository", () => {
 
     expect(oldFts).toHaveLength(0);
     expect(newFts).toHaveLength(1);
+  });
+
+  it("update leaves unchanged fields untouched when omitted", async () => {
+    const createdAt = new Date("2026-03-01T00:00:00.000Z");
+    const updatedAt = new Date("2026-03-02T00:00:00.000Z");
+
+    await createMemory({
+      id: "patch-memory",
+      content: "Patch me.",
+      workspace: "/repo",
+      createdAt,
+      updatedAt,
+    });
+
+    const updated = await repository.update({
+      id: "patch-memory",
+      workspace: null,
+    });
+
+    expect(updated.content).toBe("Patch me.");
+    expect(updated.workspace).toBeUndefined();
+    expect(updated.createdAt.getTime()).toBe(createdAt.getTime());
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(updatedAt.getTime());
+  });
+
+  it("update returns the existing record unchanged when the patch is empty", async () => {
+    const createdAt = new Date("2026-03-01T00:00:00.000Z");
+    const updatedAt = new Date("2026-03-02T00:00:00.000Z");
+
+    await createMemory({
+      id: "noop-update",
+      content: "No-op.",
+      workspace: "/repo",
+      createdAt,
+      updatedAt,
+    });
+
+    const updated = await repository.update({
+      id: "noop-update",
+    });
+
+    expect(updated).toEqual({
+      id: "noop-update",
+      content: "No-op.",
+      workspace: "/repo",
+      createdAt,
+      updatedAt,
+    });
   });
 
   it("update throws NotFoundError for nonexistent id", async () => {

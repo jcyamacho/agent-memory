@@ -49,11 +49,8 @@ class ReviewOnlyRepository implements MemoryRepository {
 class FakeWorkspaceResolver implements WorkspaceResolver {
   constructor(private readonly resolved = new Map<string, string>()) {}
 
-  async resolve(workspace?: string): Promise<string | undefined> {
+  async resolve(workspace: string): Promise<string> {
     const trimmed = workspace?.trim();
-    if (!trimmed) {
-      return undefined;
-    }
     return this.resolved.get(trimmed) ?? trimmed;
   }
 }
@@ -120,7 +117,7 @@ describe("registerReviewTool", () => {
     expect(text).toContain('id="mem-1" updated_at="2026-03-10T10:00:00.000Z"');
     expect(text).not.toContain('id="mem-1" global=');
     expect(text).toContain("First memory.");
-    expect(text).toContain('id="mem-2" global="true"');
+    expect(text).toContain('id="mem-2" updated_at="2026-03-11T12:00:00.000Z" global="true"');
     expect(text).toContain("Second memory.");
     expect(text).toContain("</memories>");
   });

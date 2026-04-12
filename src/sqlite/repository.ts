@@ -38,7 +38,9 @@ export class SqliteMemoryRepository implements MemoryRepository {
     this.getStatement = database.prepare(
       "SELECT id, content, workspace, created_at, updated_at FROM memories WHERE id = ?",
     );
-    this.updateStatement = database.prepare("UPDATE memories SET content = ?, updated_at = ? WHERE id = ?");
+    this.updateStatement = database.prepare(
+      "UPDATE memories SET content = ?, workspace = ?, updated_at = ? WHERE id = ?",
+    );
     this.deleteStatement = database.prepare("DELETE FROM memories WHERE id = ?");
     this.listWorkspacesStatement = database.prepare(
       "SELECT DISTINCT workspace FROM memories WHERE workspace IS NOT NULL ORDER BY workspace",
@@ -118,10 +120,21 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   async update(input: UpdateMemoryInput): Promise<MemoryRecord> {
+    const existingMemory = await this.get(input.id);
+    if (!existingMemory) {
+      throw new NotFoundError(`Memory not found: ${input.id}`);
+    }
+
+    const patch = applyMemoryPatch(existingMemory, input);
+
+    if (!hasMemoryChanges(existingMemory, patch)) {
+      return existingMemory;
+    }
+
     let result: { changes: number } | undefined;
     try {
       const now = Date.now();
-      result = this.updateStatement.run(input.content, now, input.id) as { changes: number };
+      result = this.updateStatement.run(patch.content, patch.workspace, now, input.id) as { changes: number };
     } catch (error) {
       throw new PersistenceError("Failed to update memory.", { cause: error });
     }
@@ -166,3 +179,30 @@ const toMemoryRecord = (row: MemoryRow): MemoryRecord => ({
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
 });
+
+function applyMemoryPatch(
+  memory: MemoryRecord,
+  input: UpdateMemoryInput,
+): {
+  content: string;
+  workspace: string | null;
+} {
+  return {
+    content: input.content ?? memory.content,
+    workspace: input.workspace === undefined ? toStoredWorkspace(memory.workspace) : input.workspace,
+  };
+}
+
+function hasMemoryChanges(
+  memory: MemoryRecord,
+  patch: {
+    content: string;
+    workspace: string | null;
+  },
+): boolean {
+  return patch.content !== memory.content || patch.workspace !== toStoredWorkspace(memory.workspace);
+}
+
+function toStoredWorkspace(workspace: string | undefined): string | null {
+  return workspace ?? null;
+}

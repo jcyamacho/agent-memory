@@ -3,11 +3,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { NotFoundError, ValidationError } from "../../errors.ts";
+import type { MemoryRecord } from "../../memory.ts";
 import { registerForgetTool } from "./forget.ts";
 
 describe("registerForgetTool", () => {
   let deletedId: string | undefined;
-  let forgetImpl: (id: string) => Promise<void>;
+  let forgetImpl: (id: string) => Promise<MemoryRecord>;
   let server: McpServer;
   let client: Client;
 
@@ -15,6 +16,14 @@ describe("registerForgetTool", () => {
     deletedId = undefined;
     forgetImpl = async (id) => {
       deletedId = id;
+      const now = new Date("2026-03-19T12:00:00.000Z");
+      return {
+        id,
+        content: "Deleted fact.",
+        workspace: undefined,
+        createdAt: new Date("2026-03-19T11:00:00.000Z"),
+        updatedAt: now,
+      };
     };
     server = new McpServer({
       name: "agent-memory-test",
@@ -48,7 +57,9 @@ describe("registerForgetTool", () => {
 
     expect(deletedId).toBe("memory-1");
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toBe('<memory id="memory-1" deleted="true" />');
+    expect(text).toBe(
+      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true" deleted="true">\nDeleted fact.\n</memory>',
+    );
   });
 
   it("returns an MCP error for empty id", async () => {

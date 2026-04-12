@@ -10,7 +10,7 @@ It exposes four tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
 - `review` -> load workspace and global memories sorted by most recently updated
-- `revise` -> update an existing memory when it becomes outdated
+- `revise` -> update an existing memory when its content changes or when it should become global
 - `forget` -> delete a memory that is no longer relevant
 
 ## Quick Start
@@ -57,7 +57,9 @@ targets the habits models most commonly miss:
   only for facts that apply across projects.
 - Remember preferences, confirmed approaches, and decisions with reasoning
   that would be lost after the session.
-- Revise or forget stale memories immediately when you spot them.
+- Revise content when a fact changes, promote a project-scoped memory to
+  global only when it truly applies across projects, and forget it when it is
+  no longer relevant.
 - Do not store secrets, temporary task state, or facts obvious from current
   code or git history.
 ```
@@ -77,6 +79,13 @@ npx -y @jcyamacho/agent-memory@latest --ui --port 9090
 ```
 
 The web UI uses the same database as the MCP server.
+
+## Mutating Tool Output
+
+`remember`, `revise`, and `forget` return the full affected memory
+as XML with `updated_at` and scope information so clients that hide tool-call
+arguments can still see what changed.
+`forget` includes `deleted="true"` on the returned `<memory>` element.
 
 ## How Review Works
 

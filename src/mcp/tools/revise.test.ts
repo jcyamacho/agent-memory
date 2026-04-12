@@ -3,24 +3,26 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { NotFoundError, ValidationError } from "../../errors.ts";
-import type { MemoryRecord } from "../../memory.ts";
+import type { MemoryRecord, UpdateMemoryInput } from "../../memory.ts";
 import { registerReviseTool } from "./revise.ts";
 
 describe("registerReviseTool", () => {
-  let updatedId: string | undefined;
-  let updatedContent: string | undefined;
-  let reviseImpl: (id: string, content: string) => Promise<MemoryRecord>;
+  let lastUpdateInput: UpdateMemoryInput | undefined;
+  let reviseImpl: (input: UpdateMemoryInput) => Promise<MemoryRecord>;
   let server: McpServer;
   let client: Client;
 
   beforeEach(async () => {
-    updatedId = undefined;
-    updatedContent = undefined;
-    reviseImpl = async (id, content) => {
-      updatedId = id;
-      updatedContent = content;
-      const now = new Date("2026-03-19T12:00:00.000Z");
-      return { id, content, createdAt: now, updatedAt: now };
+    lastUpdateInput = undefined;
+    reviseImpl = async (input) => {
+      lastUpdateInput = input;
+      return {
+        id: input.id,
+        content: input.content ?? "Existing fact.",
+        workspace: input.workspace === null ? undefined : (input.workspace ?? undefined),
+        createdAt: new Date("2026-03-19T11:00:00.000Z"),
+        updatedAt: new Date("2026-03-19T12:00:00.000Z"),
+      };
     };
     server = new McpServer({
       name: "agent-memory-test",
@@ -28,7 +30,7 @@ describe("registerReviseTool", () => {
     });
 
     registerReviseTool(server, {
-      update: async ({ id, content }) => reviseImpl(id, content),
+      update: async (input) => reviseImpl(input),
     });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -46,7 +48,7 @@ describe("registerReviseTool", () => {
     await server.close();
   });
 
-  it("updates memory and returns XML with server-generated values", async () => {
+  it("updates memory content and returns XML with server-generated values", async () => {
     const response = await client.callTool({
       name: "revise",
       arguments: {
@@ -55,10 +57,73 @@ describe("registerReviseTool", () => {
       },
     });
 
-    expect(updatedId).toBe("memory-1");
-    expect(updatedContent).toBe("  Updated fact.  ");
+    expect(lastUpdateInput).toEqual({
+      id: "memory-1",
+      content: "  Updated fact.  ",
+      workspace: undefined,
+    });
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toMatch(/^<memory id="memory-1" updated_at="[^"]+" \/>$/);
+    expect(text).toBe(
+      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true">\n  Updated fact.  \n</memory>',
+    );
+  });
+
+  it("updates memory scope to global", async () => {
+    const response = await client.callTool({
+      name: "revise",
+      arguments: {
+        id: "memory-1",
+        global: true,
+      },
+    });
+
+    expect(lastUpdateInput).toEqual({
+      id: "memory-1",
+      content: undefined,
+      workspace: null,
+    });
+    const text = (response.content as { type: string; text: string }[])[0]?.text;
+    expect(text).toBe(
+      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true">\nExisting fact.\n</memory>',
+    );
+  });
+
+  it("updates memory content and promotes scope to global together", async () => {
+    const response = await client.callTool({
+      name: "revise",
+      arguments: {
+        id: "memory-1",
+        content: "Updated fact.",
+        global: true,
+      },
+    });
+
+    expect(lastUpdateInput).toEqual({
+      id: "memory-1",
+      content: "Updated fact.",
+      workspace: null,
+    });
+    const text = (response.content as { type: string; text: string }[])[0]?.text;
+    expect(text).toBe(
+      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true">\nUpdated fact.\n</memory>',
+    );
+  });
+
+  it("returns an MCP error when no fields are provided", async () => {
+    const response = await client.callTool({
+      name: "revise",
+      arguments: {
+        id: "memory-1",
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content).toEqual([
+      {
+        type: "text",
+        text: "MCP error -32602: Provide at least one field to revise.",
+      },
+    ]);
   });
 
   it("returns an MCP error for empty content", async () => {
