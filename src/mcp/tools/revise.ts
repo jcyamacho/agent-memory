@@ -10,10 +10,7 @@ const reviseInputSchema = {
     .string()
     .optional()
     .describe("Corrected replacement text for that memory. Omit to keep the current content."),
-  global: z
-    .boolean()
-    .optional()
-    .describe("Set to true to move a project-scoped memory to global scope."),
+  global: z.boolean().optional().describe("Set to true to move a project-scoped memory to global scope."),
 };
 
 export function registerReviseTool(server: McpServer, memory: Pick<MemoryApi, "update">): void {
