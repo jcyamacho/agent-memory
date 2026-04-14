@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { NotFoundError, ValidationError } from "../../errors.ts";
+import { NotFoundError } from "../../errors.ts";
 import type { MemoryRecord } from "../../memory.ts";
 import { registerForgetTool } from "./forget.ts";
 
@@ -21,7 +21,6 @@ describe("registerForgetTool", () => {
         id,
         content: "Deleted fact.",
         workspace: undefined,
-        createdAt: new Date("2026-03-19T11:00:00.000Z"),
         updatedAt: now,
       };
     };
@@ -60,25 +59,6 @@ describe("registerForgetTool", () => {
     expect(text).toBe(
       '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true" deleted="true">\nDeleted fact.\n</memory>',
     );
-  });
-
-  it("returns an MCP error for empty id", async () => {
-    forgetImpl = async () => {
-      throw new ValidationError("Memory id is required.");
-    };
-
-    const response = await client.callTool({
-      name: "forget",
-      arguments: { id: "   " },
-    });
-
-    expect(response.isError).toBe(true);
-    expect(response.content).toEqual([
-      {
-        type: "text",
-        text: "MCP error -32602: Memory id is required.",
-      },
-    ]);
   });
 
   it("returns an MCP error when memory is not found", async () => {

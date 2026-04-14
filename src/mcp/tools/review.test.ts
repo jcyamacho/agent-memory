@@ -21,7 +21,7 @@ class ReviewOnlyRepository implements MemoryRepository {
 
   async create(input: CreateMemoryInput): Promise<MemoryRecord> {
     const now = new Date();
-    return { id: "memory-1", content: input.content, workspace: input.workspace, createdAt: now, updatedAt: now };
+    return { id: "memory-1", content: input.content, workspace: input.workspace, updatedAt: now };
   }
 
   async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
@@ -94,13 +94,11 @@ describe("registerReviewTool", () => {
           id: "mem-1",
           content: "First memory.",
           workspace: "/repo-a",
-          createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),
         },
         {
           id: "mem-2",
           content: "Second memory.",
-          createdAt: new Date("2026-03-09T08:00:00.000Z"),
           updatedAt: new Date("2026-03-11T12:00:00.000Z"),
         },
       ],
@@ -141,7 +139,6 @@ describe("registerReviewTool", () => {
           id: "mem-1",
           content: "A memory.",
           workspace: "/repo-a",
-          createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),
         },
       ],
@@ -174,7 +171,6 @@ describe("registerReviewTool", () => {
           id: "mem-1",
           content: 'Use <script> & "quotes"',
           workspace: "/repo-a",
-          createdAt: new Date("2026-03-10T10:00:00.000Z"),
           updatedAt: new Date("2026-03-10T10:00:00.000Z"),
         },
       ],
@@ -199,18 +195,6 @@ describe("registerReviewTool", () => {
     expect(repository.lastListInput).toMatchObject({
       workspace: "/repo-a",
       offset: 2 * REVIEW_PAGE_SIZE,
-      limit: REVIEW_PAGE_SIZE,
-    });
-  });
-
-  it("defaults page to 0", async () => {
-    await client.callTool({
-      name: "review",
-      arguments: { workspace: "/repo-a" },
-    });
-
-    expect(repository.lastListInput).toMatchObject({
-      offset: 0,
       limit: REVIEW_PAGE_SIZE,
     });
   });

@@ -21,7 +21,6 @@ describe("registerRememberTool", () => {
       create: async (memory) => {
         savedMemory = {
           id: "memory-1",
-          createdAt: new Date("2026-03-19T12:00:00.000Z"),
           updatedAt: new Date("2026-03-19T12:00:00.000Z"),
           ...memory,
         };

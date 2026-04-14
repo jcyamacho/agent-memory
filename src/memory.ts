@@ -2,7 +2,6 @@ export interface MemoryRecord {
   id: string;
   content: string;
   workspace?: string;
-  createdAt: Date;
   updatedAt: Date;
 }
 

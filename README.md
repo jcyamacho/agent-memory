@@ -3,14 +3,15 @@
 Persistent memory for MCP-powered coding agents.
 
 `agent-memory` is a stdio MCP server that gives your LLM durable memory backed
-by SQLite. It helps your agent remember preferences, project context, and prior
-decisions across sessions.
+by Markdown files on disk. It helps your agent remember preferences, project
+context, and prior decisions across sessions.
 
 It exposes four tools:
 
 - `remember` -> save facts, decisions, preferences, and project context
 - `review` -> load workspace and global memories sorted by most recently updated
-- `revise` -> update an existing memory when its content changes or when it should become global
+- `revise` -> update an existing memory when its content changes or when it
+  should become global
 - `forget` -> delete a memory that is no longer relevant
 
 ## Quick Start
@@ -64,22 +65,6 @@ targets the habits models most commonly miss:
   code or git history.
 ```
 
-## Web UI
-
-Browse, edit, and delete memories in a local web interface:
-
-```bash
-npx -y @jcyamacho/agent-memory@latest --ui
-```
-
-Opens at `http://localhost:6580`. Use `--port` to change:
-
-```bash
-npx -y @jcyamacho/agent-memory@latest --ui --port 9090
-```
-
-The web UI uses the same database as the MCP server.
-
 ## Mutating Tool Output
 
 `remember`, `revise`, and `forget` return the full affected memory
@@ -99,28 +84,33 @@ workspace queries so linked worktrees still match repo-scoped memories exactly.
 
 ## Configuration
 
-### Database Location
+### Store Location
 
-By default, the SQLite database is created at:
+By default, memories are stored under:
 
 ```text
-~/.config/agent-memory/memory.db
+~/.config/agent-memory/
 ```
 
 Override it with:
 
 ```bash
-AGENT_MEMORY_DB_PATH=/absolute/path/to/memory.db
+AGENT_MEMORY_STORE_PATH=/absolute/path/to/agent-memory
 ```
 
-Set `AGENT_MEMORY_DB_PATH` when you want to:
+The store layout is:
+
+```text
+<store>/
+  globals/<memory-id>.md
+  workspaces/<encoded-workspace>/<memory-id>.md
+```
+
+Set `AGENT_MEMORY_STORE_PATH` when you want to:
 
 - keep memory in a project-specific location
-- share a memory DB across multiple clients
-- store the DB somewhere easier to back up or inspect
-
-Schema changes are migrated automatically, including workspace normalization for
-existing git worktree memories when the original path can still be resolved.
+- share a memory store across multiple clients
+- keep the Markdown files somewhere easier to back up or inspect
 
 ## License
 

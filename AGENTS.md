@@ -13,8 +13,6 @@
 - Do not use Bun-only runtime APIs in application code (`Bun.serve`,
   `Bun.file`, `Bun.sql`, `Bun.redis`, `bun:sqlite`, `Bun.$`).
 - Build with `bun run build`, which must produce `dist/index.js`.
-- Keep `better-sqlite3` external in the build output so its native binding
-  loads correctly at runtime.
 
 ## APIs and Implementation
 
@@ -63,12 +61,14 @@
 - Retrieval is browse-based: `review` lists workspace + global memories sorted
   by `updated_at DESC` with pagination. There is no search or ranking -- the
   LLM determines relevance from the loaded context.
-- The repository layer handles persistence (SQLite CRUD + FTS triggers for
-  future use). The service layer handles validation, workspace resolution, and
-  workspace remapping.
+- The repository layer handles filesystem persistence with one Markdown file
+  per memory under `globals/` or `workspaces/<encoded-workspace>/`. The service
+  layer handles validation, workspace resolution, and workspace remapping.
 - `WorkspaceResolver` canonicalizes paths (e.g. git worktree -> main repo root)
   before they reach the repository. Do not re-normalize workspace paths
   downstream.
+- `updated_at` comes from filesystem `mtime`. There is no stored `created_at`
+  field in the active backend.
 - MCP tool outputs should only include server-generated values. Do not echo
   input parameters back to the caller.
 
@@ -76,8 +76,8 @@
 
 - Write tests with `bun:test` APIs.
 - Service and MCP tool tests use fake implementations (`FakeMemoryRepository`,
-  `FakeWorkspaceResolver`) that return preset results regardless of query. Only
-  repository tests hit a real SQLite database.
+  `FakeWorkspaceResolver`) that return preset results regardless of query.
+- Repository tests should exercise the filesystem store directly.
 
 ## Docs and UX
 

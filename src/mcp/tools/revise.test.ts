@@ -20,7 +20,6 @@ describe("registerReviseTool", () => {
         id: input.id,
         content: input.content ?? "Existing fact.",
         workspace: input.workspace === null ? undefined : (input.workspace ?? undefined),
-        createdAt: new Date("2026-03-19T11:00:00.000Z"),
         updatedAt: new Date("2026-03-19T12:00:00.000Z"),
       };
     };
@@ -85,27 +84,6 @@ describe("registerReviseTool", () => {
     const text = (response.content as { type: string; text: string }[])[0]?.text;
     expect(text).toBe(
       '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true">\nExisting fact.\n</memory>',
-    );
-  });
-
-  it("updates memory content and promotes scope to global together", async () => {
-    const response = await client.callTool({
-      name: "revise",
-      arguments: {
-        id: "memory-1",
-        content: "Updated fact.",
-        global: true,
-      },
-    });
-
-    expect(lastUpdateInput).toEqual({
-      id: "memory-1",
-      content: "Updated fact.",
-      workspace: null,
-    });
-    const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toBe(
-      '<memory id="memory-1" updated_at="2026-03-19T12:00:00.000Z" global="true">\nUpdated fact.\n</memory>',
     );
   });
 

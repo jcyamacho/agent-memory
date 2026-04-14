@@ -14,14 +14,13 @@ import { createPassthroughWorkspaceResolver, type WorkspaceResolver } from "./wo
 
 const DEFAULT_WORKSPACE = "/tmp/project";
 const DEFAULT_TIMESTAMP = new Date("2026-03-01T00:00:00.000Z");
-const DEFAULT_CONTENT = "Use shared sqlite decisions to coordinate agents.";
+const DEFAULT_CONTENT = "Use shared filesystem decisions to coordinate agents.";
 
 function createMemoryRecord(id: string, overrides: Partial<MemoryRecord> = {}): MemoryRecord {
   return {
     id,
     content: DEFAULT_CONTENT,
     workspace: DEFAULT_WORKSPACE,
-    createdAt: DEFAULT_TIMESTAMP,
     updatedAt: DEFAULT_TIMESTAMP,
     ...overrides,
   };
@@ -46,7 +45,6 @@ class FakeMemoryRepository implements MemoryRepository {
       id: "memory-saved",
       content: input.content,
       workspace: input.workspace,
-      createdAt: now,
       updatedAt: now,
     };
     this.created.push({ ...input, id: record.id });
@@ -62,7 +60,6 @@ class FakeMemoryRepository implements MemoryRepository {
       id: input.id,
       content: input.content ?? this.memory?.content ?? DEFAULT_CONTENT,
       workspace,
-      createdAt: DEFAULT_TIMESTAMP,
       updatedAt: now,
     };
     this.updatedRecord = record;
@@ -118,17 +115,15 @@ describe("MemoryService", () => {
     const service = createService(repository);
 
     const result = await service.create({
-      content: "Use a global SQLite database shared across tools.",
+      content: "Use a shared filesystem store across tools.",
       workspace: DEFAULT_WORKSPACE,
     });
 
     expect(repository.created).toHaveLength(1);
-    expect(result.content).toBe("Use a global SQLite database shared across tools.");
+    expect(result.content).toBe("Use a shared filesystem store across tools.");
     expect(result.workspace).toBe(DEFAULT_WORKSPACE);
     expect(result.id.length).toBeGreaterThan(0);
-    expect(result.createdAt).toBeInstanceOf(Date);
     expect(result.updatedAt).toBeInstanceOf(Date);
-    expect(result.createdAt.getTime()).toBe(result.updatedAt.getTime());
   });
 
   it("stores the canonical workspace returned by the resolver on create", async () => {
@@ -273,7 +268,6 @@ describe("MemoryService", () => {
       id: "memory-1",
       content: "Shared read policy belongs in the application layer.",
       workspace: "/repo",
-      createdAt: DEFAULT_TIMESTAMP,
       updatedAt: DEFAULT_TIMESTAMP,
     });
   });
@@ -311,7 +305,6 @@ describe("MemoryService", () => {
       id: "memory-1",
       content: "Shared read policy belongs in the application layer.",
       workspace: "/repo",
-      createdAt: DEFAULT_TIMESTAMP,
       updatedAt: DEFAULT_TIMESTAMP,
     });
   });
