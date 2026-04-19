@@ -51,18 +51,18 @@ targets the habits models most commonly miss:
 ```md
 ## Agent Memory
 
-- Use `memory_review` at conversation start to load workspace memories into
-  context. During the session, use `memory_remember`, `memory_revise`, and
-  `memory_forget` to keep memories accurate.
-- Pass `workspace` on `memory_remember` for project-scoped memory. Omit it
-  only for facts that apply across projects.
-- Remember preferences, confirmed approaches, and decisions with reasoning
-  that would be lost after the session.
-- Revise content when a fact changes, promote a project-scoped memory to
-  global only when it truly applies across projects, and forget it when it is
-  no longer relevant.
+- Use the memory review MCP/tool at session start to load workspace memories
+  into context before taking action
+- During the session, use the memory remember, revise, and forget MCP/tools to
+  keep memories accurate
+- Pass `workspace` for project-scoped memory. Omit it only for facts that truly
+  apply across projects. Promote project-scoped memory to global only when that
+  is actually true.
+- Remember durable preferences, confirmed approaches, and decisions with
+  reasoning that would be hard to recover later. Revise memories when facts
+  change and forget them when they are no longer relevant.
 - Do not store secrets, temporary task state, or facts obvious from current
-  code or git history.
+  code, files, or git history.
 ```
 
 ## Mutating Tool Output
