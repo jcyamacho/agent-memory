@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { NotFoundError, ValidationError } from "../../errors.ts";
-import type { MemoryRecord, UpdateMemoryInput } from "../../memory.ts";
+import { NotFoundError, ValidationError } from "@/errors.ts";
+import type { MemoryRecord, UpdateMemoryInput } from "@/memory.ts";
 import { registerReviseTool } from "./revise.ts";
 
 describe("registerReviseTool", () => {

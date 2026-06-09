@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import * as z from "zod/v4";
-import { ValidationError } from "../../errors.ts";
-import type { MemoryApi } from "../../memory.ts";
-import { toMemoryXml } from "../../memory-format.ts";
+import { z } from "zod";
+import { ValidationError } from "@/errors.ts";
+import type { MemoryApi } from "@/memory.ts";
+import { toMemoryXml } from "@/memory-format.ts";
 import { toMcpError } from "./shared.ts";
 
 const reviseInputSchema = {

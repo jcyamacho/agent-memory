@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MemoryApi } from "../memory.ts";
+import type { MemoryApi } from "@/memory.ts";
 import { registerForgetTool } from "./tools/forget.ts";
 import { registerRememberTool } from "./tools/remember.ts";
 import { registerReviewTool } from "./tools/review.ts";

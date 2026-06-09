@@ -29,14 +29,18 @@
     "release:major": "npm version major && git push origin main --follow-tags"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.11",
-    "@types/bun": "latest"
+    "@biomejs/biome": "2.4.16",
+    "@types/bun": "latest",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3 || ^6.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
+  },
+  "overrides": {
+    "zod": "4.4.3"
   }
 }

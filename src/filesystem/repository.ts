@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readdir, readFile, rename, rm, stat, unlink, utimes, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { NotFoundError, PersistenceError } from "../errors.ts";
+import { NotFoundError, PersistenceError } from "@/errors.ts";
 import type {
   CreateMemoryInput,
   DeleteMemoryInput,
@@ -10,7 +10,7 @@ import type {
   MemoryRecord,
   MemoryRepository,
   UpdateMemoryInput,
-} from "../memory.ts";
+} from "@/memory.ts";
 
 const DEFAULT_LIST_LIMIT = 15;
 const MARKDOWN_EXTENSION = ".md";

@@ -10,9 +10,9 @@ import type {
   MemoryRecord,
   MemoryRepository,
   UpdateMemoryInput,
-} from "../../memory.ts";
-import { MemoryService } from "../../memory-service.ts";
-import type { WorkspaceResolver } from "../../workspace-resolver.ts";
+} from "@/memory.ts";
+import { MemoryService } from "@/memory-service.ts";
+import type { WorkspaceResolver } from "@/workspace-resolver.ts";
 import { REVIEW_PAGE_SIZE, registerReviewTool } from "./review.ts";
 
 class ReviewOnlyRepository implements MemoryRepository {

@@ -1,5 +1,5 @@
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { MemoryError } from "../../errors.ts";
+import { MemoryError } from "@/errors.ts";
 
 export function toMcpError(error: unknown): McpError {
   if (error instanceof McpError) {

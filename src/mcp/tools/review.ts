@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import * as z from "zod/v4";
-import type { MemoryApi } from "../../memory.ts";
-import { formatMemoriesXml } from "../../memory-format.ts";
+import { z } from "zod";
+import type { MemoryApi } from "@/memory.ts";
+import { formatMemoriesXml } from "@/memory-format.ts";
 import { toMcpError } from "./shared.ts";
 
 export const REVIEW_PAGE_SIZE = 50;

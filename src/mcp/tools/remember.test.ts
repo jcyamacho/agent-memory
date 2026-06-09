@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { MemoryRecord } from "../../memory.ts";
+import type { MemoryRecord } from "@/memory.ts";
 import { registerRememberTool } from "./remember.ts";
 
 describe("registerRememberTool", () => {
