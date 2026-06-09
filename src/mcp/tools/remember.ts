@@ -9,7 +9,9 @@ const rememberInputSchema = {
   workspace: z
     .string()
     .optional()
-    .describe("Current working directory for project-scoped memory. Omit for facts that apply across projects."),
+    .describe(
+      "Absolute path of the current working directory for project-scoped memory. Omit only for facts that apply across all projects.",
+    ),
 };
 
 export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, "create">): void {
@@ -23,7 +25,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
         openWorldHint: false,
       },
       description:
-        "Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Returns the saved memory as `<memory ...>...</memory>`.",
+        "Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Never store secrets or temporary task state. Returns the saved memory as `<memory ...>...</memory>`.",
       inputSchema: rememberInputSchema,
     },
     async ({ content, workspace }) => {

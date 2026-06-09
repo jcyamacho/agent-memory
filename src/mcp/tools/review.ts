@@ -7,7 +7,11 @@ import { toMcpError } from "./shared.ts";
 export const REVIEW_PAGE_SIZE = 50;
 
 const reviewInputSchema = {
-  workspace: z.string().describe("Current working directory for project-scoped listing."),
+  workspace: z
+    .string()
+    .describe(
+      "Absolute path of the current working directory. Used to load project-scoped memories alongside globals.",
+    ),
   page: z.number().int().min(0).optional().describe("Zero-based page number. Defaults to 0."),
 };
 
@@ -21,7 +25,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         openWorldHint: false,
       },
       description:
-        'Load workspace and global memories sorted by most recently updated. Use at the start of a task and before saving or revising memory. Returns `<memories workspace="..." has_more="true|false">...</memories>` with pagination support. Global memories are marked with `global="true"`.',
+        'Load workspace and global memories sorted by most recently updated. Use at the start of a task and before saving or revising memory. Returns `<memories workspace="..." has_more="true|false">...</memories>`. If has_more="true", call again with page incremented. Global memories are marked with `global="true"`.',
       inputSchema: reviewInputSchema,
     },
     async ({ workspace, page }) => {
