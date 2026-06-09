@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { MemoryApi } from "../../memory.ts";
-import { toMcpError, toMemoryXml } from "./shared.ts";
+import { toMemoryXml } from "../../memory-format.ts";
+import { toMcpError } from "./shared.ts";
 
 const forgetInputSchema = {
   id: z.string().describe("Memory id to delete. Use an id returned by `review`."),

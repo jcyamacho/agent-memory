@@ -2,6 +2,7 @@ import { NotFoundError, ValidationError } from "./errors.ts";
 import type {
   CreateMemoryInput,
   DeleteMemoryInput,
+  ListAllMemoriesInput,
   ListMemoriesInput,
   MemoryApi,
   MemoryPage,
@@ -71,6 +72,26 @@ export class MemoryService implements MemoryApi {
       items: page.items.map((item) => remapWorkspace(item, workspace, queryWorkspace)),
       hasMore: page.hasMore,
     };
+  }
+
+  async listAll(input: ListAllMemoriesInput): Promise<MemoryRecord[]> {
+    const items: MemoryRecord[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const page = await this.list({
+        ...input,
+        offset,
+        limit: MAX_LIST_LIMIT,
+      });
+
+      items.push(...page.items);
+      hasMore = page.hasMore;
+      offset += MAX_LIST_LIMIT;
+    }
+
+    return items;
   }
 
   async listWorkspaces(): Promise<string[]> {

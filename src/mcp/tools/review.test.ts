@@ -127,7 +127,7 @@ describe("registerReviewTool", () => {
     });
 
     const text = (response.content as { type: string; text: string }[])[0]?.text;
-    expect(text).toBe("No memories found for this workspace.");
+    expect(text).toBe('<memories workspace="/empty-repo" has_more="false"></memories>');
   });
 
   it("remaps canonical workspace to the query workspace on the wrapper", async () => {

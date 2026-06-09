@@ -17,6 +17,8 @@ export interface ListMemoriesInput {
   limit?: number;
 }
 
+export type ListAllMemoriesInput = Omit<ListMemoriesInput, "offset" | "limit">;
+
 export interface CreateMemoryInput {
   content: string;
   workspace?: string;
@@ -38,6 +40,7 @@ export interface MemoryApi {
   delete(input: DeleteMemoryInput): Promise<MemoryRecord>;
   get(id: string): Promise<MemoryRecord | undefined>;
   list(input: ListMemoriesInput): Promise<MemoryPage>;
+  listAll(input: ListAllMemoriesInput): Promise<MemoryRecord[]>;
   listWorkspaces(): Promise<string[]>;
 }
 

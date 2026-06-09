@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { MemoryApi } from "../../memory.ts";
-import { escapeXml, toMcpError, toMemoryXml } from "./shared.ts";
+import { formatMemoriesXml } from "../../memory-format.ts";
+import { toMcpError } from "./shared.ts";
 
 export const REVIEW_PAGE_SIZE = 50;
 
@@ -33,15 +34,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
           limit: REVIEW_PAGE_SIZE,
         });
 
-        if (result.items.length === 0) {
-          return {
-            content: [{ type: "text" as const, text: "No memories found for this workspace." }],
-          };
-        }
-
-        const escapedWorkspace = escapeXml(workspace);
-        const memories = result.items.map((item) => toMemoryXml(item, { skipWorkspaceIfEquals: workspace })).join("\n");
-        const text = `<memories workspace="${escapedWorkspace}" has_more="${result.hasMore}">\n${memories}\n</memories>`;
+        const text = formatMemoriesXml(workspace, result.items, result.hasMore);
 
         return {
           content: [{ type: "text" as const, text }],

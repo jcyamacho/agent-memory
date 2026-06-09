@@ -42,6 +42,71 @@ OpenCode:
 }
 ```
 
+## Load Memories at Session Start (Hooks)
+
+Some clients defer MCP tool loading until the model decides it needs a tool.
+That can prevent proactive `review` calls at session start. A session-start
+hook guarantees memories are loaded before the first prompt.
+
+The CLI prints the same `<memories>` XML as the MCP `review` tool:
+
+```bash
+npx -y @jcyamacho/agent-memory review
+```
+
+Use `--workspace <path>` to override the default workspace (`process.cwd()`).
+Hook commands run with the project directory as cwd, so the default is usually
+enough.
+
+Claude Code (`~/.claude/settings.json` or `.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y @jcyamacho/agent-memory review"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Codex CLI (`~/.codex/hooks.json`, requires `features.codex_hooks = true` in
+`~/.codex/config.toml`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y @jcyamacho/agent-memory review"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Notes:
+
+- Claude Code caps hook stdout at 10,000 characters. Larger output is written
+  to a file the model can read.
+- `npx` cold-cache latency can delay session start. If the package is installed
+  locally, call the `agent-memory` bin directly.
+- Claude Code users can alternatively set `"alwaysLoad": true` on the memory
+  server in `.mcp.json` (v2.1.121+) as a lighter, non-deterministic option.
+
 ## Optional LLM Instructions
 
 Optional LLM instructions to reinforce the MCP's built-in guidance. The server

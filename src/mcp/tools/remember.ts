@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import type { MemoryApi } from "../../memory.ts";
-import { toMcpError, toMemoryXml } from "./shared.ts";
+import { toMemoryXml } from "../../memory-format.ts";
+import { toMcpError } from "./shared.ts";
 
 const rememberInputSchema = {
   content: z.string().describe("One new durable fact to save. Use a self-contained sentence or short note."),

@@ -105,6 +105,38 @@ class FakeWorkspaceResolver implements WorkspaceResolver {
   }
 }
 
+class PaginatedMemoryRepository implements MemoryRepository {
+  public listInputs: ListMemoriesInput[] = [];
+
+  constructor(private readonly pages: MemoryPage[]) {}
+
+  async create(_input: CreateMemoryInput): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async delete(_input: DeleteMemoryInput): Promise<void> {
+    throw new Error("Not implemented");
+  }
+
+  async get(_id: string): Promise<MemoryRecord | undefined> {
+    return undefined;
+  }
+
+  async list(input: ListMemoriesInput): Promise<MemoryPage> {
+    this.listInputs.push(input);
+    const pageIndex = Math.floor((input.offset ?? 0) / 100);
+    return this.pages[pageIndex] ?? { items: [], hasMore: false };
+  }
+
+  async listWorkspaces(): Promise<string[]> {
+    return [];
+  }
+}
+
 function createService(repository: MemoryRepository, workspaceResolver?: WorkspaceResolver): MemoryService {
   return new MemoryService(repository, workspaceResolver ?? createPassthroughWorkspaceResolver());
 }
@@ -364,6 +396,40 @@ describe("MemoryService", () => {
       offset: 0,
       limit: 15,
     });
+  });
+
+  it("listAll aggregates paginated results", async () => {
+    const repository = new PaginatedMemoryRepository([
+      {
+        items: [
+          createMemoryRecord("memory-1", {
+            content: "Page one.",
+            workspace: "/repo",
+          }),
+        ],
+        hasMore: true,
+      },
+      {
+        items: [
+          createMemoryRecord("memory-2", {
+            content: "Page two.",
+            workspace: undefined,
+          }),
+        ],
+        hasMore: false,
+      },
+    ]);
+    const service = createService(repository);
+
+    const items = await service.listAll({ workspace: "/repo", global: true });
+
+    expect(items).toHaveLength(2);
+    expect(items[0]?.id).toBe("memory-1");
+    expect(items[1]?.id).toBe("memory-2");
+    expect(repository.listInputs).toEqual([
+      { workspace: "/repo", global: true, offset: 0, limit: 100 },
+      { workspace: "/repo", global: true, offset: 100, limit: 100 },
+    ]);
   });
 
   it("lists workspaces", async () => {
