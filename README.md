@@ -8,11 +8,11 @@ context, and prior decisions across sessions.
 
 It exposes four tools:
 
-- `remember` -> save facts, decisions, preferences, and project context
-- `review` -> load workspace and global memories sorted by most recently updated
-- `revise` -> update an existing memory when its content changes or when it
+- `remember`: save facts, decisions, preferences, and project context
+- `review`: load workspace and global memories sorted by most recently updated
+- `revise`: update an existing memory when its content changes or when it
   should become global
-- `forget` -> delete a memory that is no longer relevant
+- `forget`: delete up to 50 memories that are no longer relevant
 
 ## Quick Start
 
@@ -110,7 +110,7 @@ Notes:
 ## Optional LLM Instructions
 
 Optional LLM instructions to reinforce the MCP's built-in guidance. The server
-instructions and tool descriptions already cover most behavior -- this prompt
+instructions and tool descriptions already cover most behavior. This prompt
 targets the habits models most commonly miss:
 
 ```md
@@ -132,16 +132,21 @@ targets the habits models most commonly miss:
 
 ## Mutating Tool Output
 
-`remember`, `revise`, and `forget` return the full affected memory
-as XML with `updated_at` and scope information so clients that hide tool-call
-arguments can still see what changed.
-`forget` includes `deleted="true"` on the returned `<memory>` element.
+`remember` and `revise` return the full affected memory as XML with `updated_at`
+and scope information so clients that hide tool-call arguments can still see
+what changed.
+
+`forget` accepts an `ids` array containing 1 to 50 memory IDs. It trims IDs,
+ignores duplicates, and deletes up to five memories concurrently. Deletion is
+best-effort: one failure does not stop the remaining memories. The returned
+`<forget_results>` preserves request order and contains each deleted memory
+with `deleted="true"`, failed IDs and statuses, and summary counts.
 
 ## How Review Works
 
 `review` requires a `workspace` and returns memories saved in that workspace
 plus global memories (saved without a workspace), sorted by most recently
-updated. Results are paginated -- pass `page` to load older memories.
+updated. Results are paginated. Pass `page` to load older memories.
 
 When you save a memory from a git worktree, `agent-memory` stores the main repo
 root as the workspace. `review` applies the same normalization to incoming

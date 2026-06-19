@@ -1,4 +1,4 @@
-import type { MemoryRecord } from "./memory.ts";
+import type { DeleteMemoriesResult, MemoryRecord } from "./memory.ts";
 
 export const escapeXml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -30,6 +30,21 @@ export function toMemoryXml(
     .join(" ");
 
   return `<memory ${attributes}>\n${escapeXml(record.content)}\n</memory>`;
+}
+
+export function formatForgetResultsXml(result: DeleteMemoriesResult): string {
+  const deletedCount = result.outcomes.filter((outcome) => outcome.deleted).length;
+  const failedCount = result.outcomes.length - deletedCount;
+  const outcomes = result.outcomes
+    .map((outcome) =>
+      outcome.deleted
+        ? toMemoryXml(outcome.memory, { deleted: true })
+        : `<failure id="${escapeXml(outcome.id)}" status="${outcome.code}" />`,
+    )
+    .join("\n");
+  const body = outcomes ? `\n${outcomes}\n` : "";
+
+  return `<forget_results deleted="${deletedCount}" failed="${failedCount}">${body}</forget_results>`;
 }
 
 function getMemoryScopeAttribute(record: MemoryRecord, skipWorkspaceIfEquals: string | undefined): string | undefined {

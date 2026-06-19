@@ -30,14 +30,35 @@ export interface UpdateMemoryInput {
   workspace?: string | null;
 }
 
+export interface DeleteMemoriesInput {
+  ids: string[];
+}
+
 export interface DeleteMemoryInput {
   id: string;
+}
+
+export type DeleteMemoryFailureCode = "not_found" | "internal_error";
+
+export type DeleteMemoryOutcome =
+  | {
+      deleted: true;
+      memory: MemoryRecord;
+    }
+  | {
+      deleted: false;
+      id: string;
+      code: DeleteMemoryFailureCode;
+    };
+
+export interface DeleteMemoriesResult {
+  outcomes: DeleteMemoryOutcome[];
 }
 
 export interface MemoryApi {
   create(input: CreateMemoryInput): Promise<MemoryRecord>;
   update(input: UpdateMemoryInput): Promise<MemoryRecord>;
-  delete(input: DeleteMemoryInput): Promise<MemoryRecord>;
+  delete(input: DeleteMemoriesInput): Promise<DeleteMemoriesResult>;
   get(id: string): Promise<MemoryRecord | undefined>;
   list(input: ListMemoriesInput): Promise<MemoryPage>;
   listAll(input: ListAllMemoriesInput): Promise<MemoryRecord[]>;

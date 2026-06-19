@@ -137,6 +137,26 @@ describe("FilesystemMemoryRepository", () => {
     await expect(access(join(storePath, "workspaces", encodeWorkspaceSegment("/repo-a")))).rejects.toBeDefined();
   });
 
+  it("supports concurrent deletes in the same workspace", async () => {
+    await Promise.all(
+      ["delete-a", "delete-b"].map((id) =>
+        writeMemoryFile(
+          {
+            id,
+            content: "Workspace memory.",
+            workspace: "/repo-a",
+            updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+          },
+          storePath,
+        ),
+      ),
+    );
+
+    await Promise.all([repository.delete({ id: "delete-a" }), repository.delete({ id: "delete-b" })]);
+
+    await expect(access(join(storePath, "workspaces", encodeWorkspaceSegment("/repo-a")))).rejects.toBeDefined();
+  });
+
   it("lists workspaces as decoded canonical paths", async () => {
     await writeMemoryFile(
       {

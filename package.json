@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "p-queue": "^9.3.0",
     "zod": "^4.4.3"
   }
 }

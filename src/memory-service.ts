@@ -1,7 +1,10 @@
-import { NotFoundError, ValidationError } from "./errors.ts";
+import PQueue from "p-queue";
+import { ValidationError } from "./errors.ts";
 import type {
   CreateMemoryInput,
-  DeleteMemoryInput,
+  DeleteMemoriesInput,
+  DeleteMemoriesResult,
+  DeleteMemoryOutcome,
   ListAllMemoriesInput,
   ListMemoriesInput,
   MemoryApi,
@@ -16,6 +19,8 @@ const DEFAULT_LIST_LIMIT = 15;
 const MAX_LIST_LIMIT = 100;
 
 export class MemoryService implements MemoryApi {
+  private readonly deleteQueue = new PQueue({ concurrency: 5 });
+
   constructor(
     private readonly repository: MemoryRepository,
     private readonly workspaceResolver: WorkspaceResolver,
@@ -40,17 +45,28 @@ export class MemoryService implements MemoryApi {
     return this.repository.update({ id: input.id, content, workspace });
   }
 
-  async delete(input: DeleteMemoryInput): Promise<MemoryRecord> {
-    const id = input.id.trim();
-    if (!id) throw new ValidationError("Memory id is required.");
+  async delete(input: DeleteMemoriesInput): Promise<DeleteMemoriesResult> {
+    const uniqueIds = [...new Set(input.ids)];
 
-    const existingMemory = await this.repository.get(id);
-    if (!existingMemory) {
-      throw new NotFoundError(`Memory not found: ${id}`);
-    }
+    const outcomes = await Promise.all(
+      uniqueIds.map((id) =>
+        this.deleteQueue.add(async (): Promise<DeleteMemoryOutcome> => {
+          try {
+            const existingMemory = await this.repository.get(id);
+            if (!existingMemory) {
+              return { deleted: false, id, code: "not_found" };
+            }
 
-    await this.repository.delete({ id });
-    return existingMemory;
+            await this.repository.delete({ id });
+            return { deleted: true, memory: existingMemory };
+          } catch {
+            return { deleted: false, id, code: "internal_error" };
+          }
+        }),
+      ),
+    );
+
+    return { outcomes };
   }
 
   async get(id: string): Promise<MemoryRecord | undefined> {

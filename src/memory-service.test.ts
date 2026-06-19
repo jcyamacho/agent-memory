@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { NotFoundError, ValidationError } from "./errors.ts";
+import { NotFoundError, PersistenceError, ValidationError } from "./errors.ts";
 import type {
   CreateMemoryInput,
   DeleteMemoryInput,
@@ -130,6 +130,56 @@ class PaginatedMemoryRepository implements MemoryRepository {
     this.listInputs.push(input);
     const pageIndex = Math.floor((input.offset ?? 0) / 100);
     return this.pages[pageIndex] ?? { items: [], hasMore: false };
+  }
+
+  async listWorkspaces(): Promise<string[]> {
+    return [];
+  }
+}
+
+class BatchDeleteMemoryRepository implements MemoryRepository {
+  public readonly deletedIds: string[] = [];
+  public readonly errors = new Map<string, Error>();
+  public activeDeletes = 0;
+  public maxActiveDeletes = 0;
+  public delayMs = 0;
+  public readonly delays = new Map<string, number>();
+
+  constructor(public readonly records: Map<string, MemoryRecord>) {}
+
+  async create(_input: CreateMemoryInput): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async update(_input: UpdateMemoryInput): Promise<MemoryRecord> {
+    throw new Error("Not implemented");
+  }
+
+  async delete(input: DeleteMemoryInput): Promise<void> {
+    this.activeDeletes += 1;
+    this.maxActiveDeletes = Math.max(this.maxActiveDeletes, this.activeDeletes);
+
+    try {
+      const delayMs = this.delays.get(input.id) ?? this.delayMs;
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      const error = this.errors.get(input.id);
+      if (error) throw error;
+      this.deletedIds.push(input.id);
+      this.records.delete(input.id);
+    } finally {
+      this.activeDeletes -= 1;
+    }
+  }
+
+  async get(id: string): Promise<MemoryRecord | undefined> {
+    return this.records.get(id);
+  }
+
+  async list(_input: ListMemoriesInput): Promise<MemoryPage> {
+    return { items: [], hasMore: false };
   }
 
   async listWorkspaces(): Promise<string[]> {
@@ -289,42 +339,99 @@ describe("MemoryService", () => {
     expect(service.update({ id: "missing", workspace: null })).rejects.toThrow(NotFoundError);
   });
 
-  it("deletes a memory successfully and returns the deleted record", async () => {
-    const repository = new FakeMemoryRepository();
+  it("deletes each memory id once", async () => {
+    const repository = new BatchDeleteMemoryRepository(
+      new Map([
+        ["memory-1", createMemoryRecord("memory-1")],
+        ["memory-2", createMemoryRecord("memory-2")],
+      ]),
+    );
     const service = createService(repository);
 
-    const result = await service.delete({ id: "memory-1" });
+    const result = await service.delete({ ids: ["memory-1", "memory-1", "missing", "memory-2"] });
 
-    expect(repository.deletedId).toBe("memory-1");
-    expect(result).toMatchObject({
-      id: "memory-1",
-      content: "Shared read policy belongs in the application layer.",
-      workspace: "/repo",
-      updatedAt: DEFAULT_TIMESTAMP,
-    });
+    expect(repository.deletedIds).toEqual(["memory-1", "memory-2"]);
+    expect(result.outcomes).toEqual([
+      { deleted: true, memory: createMemoryRecord("memory-1") },
+      { deleted: false, id: "missing", code: "not_found" },
+      { deleted: true, memory: createMemoryRecord("memory-2") },
+    ]);
   });
 
-  it("throws ValidationError when delete id is empty", async () => {
-    const repository = new FakeMemoryRepository();
+  it("returns thrown errors as internal failures and continues deleting", async () => {
+    const repository = new BatchDeleteMemoryRepository(
+      new Map([
+        ["persistence", createMemoryRecord("persistence")],
+        ["unexpected", createMemoryRecord("unexpected")],
+        ["deleted", createMemoryRecord("deleted")],
+      ]),
+    );
+    repository.errors.set("persistence", new PersistenceError("Disk failed."));
+    repository.errors.set("unexpected", new Error("Unexpected failure."));
     const service = createService(repository);
 
-    expect(service.delete({ id: "   " })).rejects.toThrow(ValidationError);
+    const result = await service.delete({ ids: ["persistence", "unexpected", "deleted"] });
+
+    expect(result.outcomes).toEqual([
+      { deleted: false, id: "persistence", code: "internal_error" },
+      { deleted: false, id: "unexpected", code: "internal_error" },
+      { deleted: true, memory: createMemoryRecord("deleted") },
+    ]);
+    expect(repository.deletedIds).toEqual(["deleted"]);
   });
 
-  it("propagates NotFoundError from repository on delete", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.deleteError = new NotFoundError("Memory not found.");
+  it("accepts batches larger than the MCP limit", async () => {
+    const records = new Map(
+      Array.from({ length: 51 }, (_, index) => [`memory-${index}`, createMemoryRecord(`memory-${index}`)]),
+    );
+    const repository = new BatchDeleteMemoryRepository(records);
     const service = createService(repository);
 
-    expect(service.delete({ id: "memory-1" })).rejects.toThrow(NotFoundError);
+    const result = await service.delete({ ids: [...records.keys()] });
+
+    expect(result.outcomes).toHaveLength(51);
+    expect(result.outcomes.every((outcome) => outcome.deleted)).toBe(true);
   });
 
-  it("throws NotFoundError when delete target does not exist", async () => {
-    const repository = new FakeMemoryRepository();
-    repository.memory = undefined;
+  it("returns outcomes in input order when deletes finish out of order", async () => {
+    const repository = new BatchDeleteMemoryRepository(
+      new Map([
+        ["slow", createMemoryRecord("slow")],
+        ["fast", createMemoryRecord("fast")],
+      ]),
+    );
+    repository.delays.set("slow", 20);
     const service = createService(repository);
 
-    expect(service.delete({ id: "missing" })).rejects.toThrow(NotFoundError);
+    const result = await service.delete({ ids: ["slow", "fast"] });
+
+    expect(repository.deletedIds).toEqual(["fast", "slow"]);
+    expect(result.outcomes.map((outcome) => (outcome.deleted ? outcome.memory.id : undefined))).toEqual([
+      "slow",
+      "fast",
+    ]);
+  });
+
+  it("limits concurrent deletes across simultaneous service calls", async () => {
+    const records = new Map(
+      Array.from({ length: 12 }, (_, index) => [`memory-${index}`, createMemoryRecord(`memory-${index}`)]),
+    );
+    const repository = new BatchDeleteMemoryRepository(records);
+    repository.delayMs = 10;
+    const service = createService(repository);
+
+    const [first, second] = await Promise.all([
+      service.delete({ ids: Array.from({ length: 6 }, (_, index) => `memory-${index}`) }),
+      service.delete({ ids: Array.from({ length: 6 }, (_, index) => `memory-${index + 6}`) }),
+    ]);
+
+    expect(first.outcomes.map((outcome) => (outcome.deleted ? outcome.memory.id : undefined))).toEqual(
+      Array.from({ length: 6 }, (_, index) => `memory-${index}`),
+    );
+    expect(second.outcomes.map((outcome) => (outcome.deleted ? outcome.memory.id : undefined))).toEqual(
+      Array.from({ length: 6 }, (_, index) => `memory-${index + 6}`),
+    );
+    expect(repository.maxActiveDeletes).toBe(5);
   });
 
   it("gets a memory by id", async () => {
