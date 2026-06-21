@@ -131,6 +131,8 @@ second time:
 ```md
 ## Agent Memory
 
+- Use the `agent-memory` MCP as the only durable memory system when its tools are
+  available.
 - If workspace memories are not already present in context, call `review` from
   the `agent-memory` MCP at session start. Continue through every page while
   `has_more` is true.
