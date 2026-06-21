@@ -25,7 +25,7 @@ export function registerReviewTool(server: McpServer, memory: Pick<MemoryApi, "l
         openWorldHint: false,
       },
       description:
-        'Load workspace and global memories sorted by most recently updated. Use at the start of a task and before saving or revising memory. Returns `<memories workspace="..." has_more="true|false">...</memories>`. If has_more="true", call again with page incremented. Global memories are marked with `global="true"`.',
+        'Load workspace and global memories, newest first. Use when memories are not already in context and before memory maintenance. Returns paginated `<memories ...>` XML; increment `page` while `has_more="true"`. Global memories have `global="true"`.',
       inputSchema: reviewInputSchema,
     },
     async ({ workspace, page }) => {

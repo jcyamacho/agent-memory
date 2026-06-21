@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Memory"
+  short_description: "Create and maintain durable atomic memories"
+  default_prompt: "Use $agent-memory to review and maintain durable atomic memories for this task."

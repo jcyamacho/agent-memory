@@ -19,13 +19,13 @@ It exposes four tools:
 Claude CLI:
 
 ```bash
-claude mcp add --scope user memory -- npx -y @jcyamacho/agent-memory
+claude mcp add --scope user agent-memory -- npx -y @jcyamacho/agent-memory
 ```
 
 Codex CLI:
 
 ```bash
-codex mcp add memory -- npx -y @jcyamacho/agent-memory
+codex mcp add agent-memory -- npx -y @jcyamacho/agent-memory
 ```
 
 OpenCode:
@@ -34,13 +34,26 @@ OpenCode:
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "memory": {
+    "agent-memory": {
       "type": "local",
       "command": ["npx", "-y", "@jcyamacho/agent-memory"]
     }
   }
 }
 ```
+
+## Install the Agent Skill
+
+Install the optional Agent Skill to teach supported coding agents how to create
+small, atomic memories and maintain them conservatively:
+
+```bash
+npx skills add jcyamacho/agent-memory --skill agent-memory -g
+```
+
+The skill complements the MCP server instructions with a detailed durability
+gate, scoping rules, and guidance for choosing between `remember`, `revise`,
+`forget`, and no operation. It does not change the MCP tools or storage format.
 
 ## Load Memories at Session Start (Hooks)
 
@@ -77,15 +90,14 @@ Claude Code (`~/.claude/settings.json` or `.claude/settings.json`):
 }
 ```
 
-Codex CLI (`~/.codex/hooks.json`, requires `features.codex_hooks = true` in
-`~/.codex/config.toml`):
+Codex CLI (`~/.codex/hooks.json`):
 
 ```json
 {
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|compact",
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
@@ -104,22 +116,26 @@ Notes:
   to a file the model can read.
 - `npx` cold-cache latency can delay session start. If the package is installed
   locally, call the `agent-memory` bin directly.
-- Claude Code users can alternatively set `"alwaysLoad": true` on the memory
-  server in `.mcp.json` (v2.1.121+) as a lighter, non-deterministic option.
+- Claude Code users can alternatively set `"alwaysLoad": true` on the
+  `agent-memory` server in `.mcp.json` (v2.1.121+) to prioritize this MCP by
+  making its tools visible from the first turn. This leaves the decision to
+  call `review` under model control.
 
 ## Optional LLM Instructions
 
-Optional LLM instructions to reinforce the MCP's built-in guidance. The server
-instructions and tool descriptions already cover most behavior. This prompt
-targets the habits models most commonly miss:
+Use these fallback instructions when the Agent Skill is not installed. The
+server instructions and tool descriptions already cover most behavior. If a
+session-start hook already injected memories, the prompt avoids loading them a
+second time:
 
 ```md
 ## Agent Memory
 
-- Use the memory review MCP/tool at session start to load workspace memories
-  into context before taking action
-- During the session, use the memory remember, revise, and forget MCP/tools to
-  keep memories accurate
+- If workspace memories are not already present in context, call `review` from
+  the `agent-memory` MCP at session start. Continue through every page while
+  `has_more` is true.
+- During the session, use `remember`, `revise`, and `forget` from the
+  `agent-memory` MCP to keep memories accurate.
 - Pass `workspace` for project-scoped memory. Omit it only for facts that truly
   apply across projects. Promote project-scoped memory to global only when that
   is actually true.

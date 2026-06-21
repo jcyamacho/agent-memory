@@ -25,7 +25,7 @@ export function registerRememberTool(server: McpServer, memory: Pick<MemoryApi, 
         openWorldHint: false,
       },
       description:
-        "Save one new durable fact. Use for stable preferences, reusable decisions, and project context not obvious from code or git history. If the fact already exists, use `revise` instead. Never store secrets or temporary task state. Returns the saved memory as `<memory ...>...</memory>`.",
+        "Save one new durable fact, such as a stable preference, decision, or hard-to-recover project constraint. Use `revise` when an equivalent memory already exists. Never store secrets or temporary state. Returns `<memory ...>` XML.",
       inputSchema: rememberInputSchema,
     },
     async ({ content, workspace }) => {

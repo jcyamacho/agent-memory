@@ -23,7 +23,7 @@ export function registerForgetTool(server: McpServer, memory: Pick<MemoryApi, "d
         openWorldHint: false,
       },
       description:
-        "Delete one or more memories that are wrong or obsolete. Use after `review` when you have the memory ids. Use `revise` instead if a fact should remain with corrected wording. Processes up to 50 ids with best-effort semantics and returns ordered results as `<forget_results>...</forget_results>`.",
+        "Delete memories confirmed obsolete or incorrect. Use `revise` when the fact should remain with corrected content. Returns ordered best-effort results as `<forget_results>...</forget_results>`.",
       inputSchema: forgetInputSchema,
     },
     async ({ ids }) => {

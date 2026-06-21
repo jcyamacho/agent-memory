@@ -35,6 +35,10 @@
   reinforce the most important memory habits, not to document every behavior.
 - Scope each instruction layer tightly and avoid repeating guidance across
   levels unless it is a critical safety rule:
+  - Agent Skill (`skills/agent-memory/SKILL.md`): canonical source for deep
+    guidance (durability gate, atomic writing, maintenance decision tree,
+    scope migration). Other layers point at it and stay thin rather than
+    restating it.
   - README optional prompt: shortest high-value habits only.
   - Server instructions: top-level policy for when to use the MCP.
   - Tool descriptions: when to use that tool instead of another one.

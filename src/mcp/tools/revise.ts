@@ -25,7 +25,7 @@ export function registerReviseTool(server: McpServer, memory: Pick<MemoryApi, "u
         openWorldHint: false,
       },
       description:
-        "Update one existing memory when the same fact still applies but its wording changed, or when a project-scoped memory should become global. Use after `review` when you already have the memory id. Omit fields you do not want to change. Returns the revised memory as `<memory ...>...</memory>`.",
+        "Update one existing memory or promote it from workspace to global scope. Use instead of `remember` when the durable fact already exists. Returns `<memory ...>` XML.",
       inputSchema: reviseInputSchema,
     },
     async ({ id, content, global }) => {
